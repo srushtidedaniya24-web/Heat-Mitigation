@@ -17,6 +17,8 @@ ENDPOINTS:
   GET  /recommend/{zone_id}
   GET  /zones
   GET  /metrics
+  GET  /heatmap-grid?step=2
+  GET  /interventions
 """
 
 from contextlib import asynccontextmanager
@@ -25,6 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
 import numpy as np
+import pandas as pd
 import json
 import joblib
 import xgboost as xgb
@@ -77,7 +80,7 @@ app.add_middleware(
 # ─────────────────────────────────────────────
 ZONE_DATA = {
     "downtown": {
-        "name": "Downtown", "lat": 19.076, "lon": 72.877,
+        "name": "Fort", "lat": 18.935, "lon": 72.836,
         "features": {
             "NDVI": 0.05, "albedo": 0.08, "builtup": 1.0,
             "road_density": 0.82, "impervious_pct": 0.90,
@@ -88,7 +91,7 @@ ZONE_DATA = {
         "population": 31345, "area_sqkm": 4.2,
     },
     "northview": {
-        "name": "Northview", "lat": 19.11, "lon": 72.877,
+        "name": "Bandra", "lat": 19.060, "lon": 72.840,
         "features": {
             "NDVI": 0.08, "albedo": 0.09, "builtup": 0.90,
             "road_density": 0.75, "impervious_pct": 0.85,
@@ -99,7 +102,7 @@ ZONE_DATA = {
         "population": 28102, "area_sqkm": 5.1,
     },
     "eastwood": {
-        "name": "Eastwood", "lat": 19.076, "lon": 72.93,
+        "name": "Chembur", "lat": 19.050, "lon": 72.900,
         "features": {
             "NDVI": 0.10, "albedo": 0.10, "builtup": 0.88,
             "road_density": 0.70, "impervious_pct": 0.82,
@@ -110,7 +113,7 @@ ZONE_DATA = {
         "population": 19847, "area_sqkm": 3.8,
     },
     "riverside": {
-        "name": "Riverside", "lat": 19.11, "lon": 72.93,
+        "name": "Powai", "lat": 19.120, "lon": 72.910,
         "features": {
             "NDVI": 0.22, "albedo": 0.15, "builtup": 0.70,
             "road_density": 0.55, "impervious_pct": 0.65,
@@ -121,7 +124,7 @@ ZONE_DATA = {
         "population": 15234, "area_sqkm": 6.2,
     },
     "southpark": {
-        "name": "Southpark", "lat": 18.95, "lon": 72.877,
+        "name": "Colaba", "lat": 18.910, "lon": 72.820,
         "features": {
             "NDVI": 0.18, "albedo": 0.13, "builtup": 0.75,
             "road_density": 0.60, "impervious_pct": 0.70,
@@ -132,7 +135,7 @@ ZONE_DATA = {
         "population": 22891, "area_sqkm": 4.9,
     },
     "westhill": {
-        "name": "Westhill", "lat": 19.076, "lon": 72.82,
+        "name": "Andheri", "lat": 19.120, "lon": 72.850,
         "features": {
             "NDVI": 0.28, "albedo": 0.18, "builtup": 0.60,
             "road_density": 0.45, "impervious_pct": 0.55,
@@ -143,7 +146,7 @@ ZONE_DATA = {
         "population": 11203, "area_sqkm": 7.3,
     },
     "lakeside": {
-        "name": "Lakeside", "lat": 18.95, "lon": 72.82,
+        "name": "Worli", "lat": 19.000, "lon": 72.820,
         "features": {
             "NDVI": 0.40, "albedo": 0.22, "builtup": 0.40,
             "road_density": 0.30, "impervious_pct": 0.38,
@@ -335,6 +338,99 @@ def get_hotspots(
         "count":       len(hotspots),
         "hotspots":    hotspots[:top_n],
     }
+
+
+@app.get("/heatmap-grid")
+def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all 55k, 5=~2.2k)")):
+    """
+    Returns downsampled grid cells colored by LST for the heat map.
+    """
+    import os as _os
+    csv_path = _os.path.join(_os.path.dirname(__file__), "data", "features_raw.csv")
+    if not _os.path.exists(csv_path):
+        raise HTTPException(503, "Grid data not available. Run data pipeline first.")
+
+    df = pd.read_csv(csv_path)
+    df = df.iloc[::step, :]  # downsample
+
+    features = []
+    for _, row in df.iterrows():
+        features.append({
+            "lat":          row["lat"],
+            "lon":          row["lon"],
+            "LST_celsius":  round(row["LST_celsius"], 1),
+        })
+
+    return {"count": len(features), "step": step, "cells": features}
+
+
+@app.get("/interventions")
+def list_interventions(
+    coverage: float = Query(100.0, ge=0, le=100),
+    zone_id:  str   = Query(None, description="Zone to simulate on (default: hottest)"),
+):
+    """
+    Returns simulated cooling for all interventions on a given zone.
+    Powers the Materials page.
+    """
+    if MODEL is None:
+        raise HTTPException(503, "Model not loaded")
+
+    if zone_id and zone_id not in ZONE_DATA:
+        raise HTTPException(404, f"Zone '{zone_id}' not found")
+
+    # Use requested zone, or fall back to hottest
+    target_zid = zone_id if zone_id else max(
+        ZONE_DATA.keys(), key=lambda zid: predict_lst(ZONE_DATA[zid]["features"])
+    )
+
+    materials = []
+    for key in INTERVENTION_EFFECTS:
+        effects = INTERVENTION_EFFECTS[key]
+        cost    = COST_PER_SQM[key]
+        base_f  = ZONE_DATA[target_zid]["features"].copy()
+        cov     = coverage / 100.0
+
+        temp_before = predict_lst(base_f)
+        modified = base_f.copy()
+        for feat, delta in effects.items():
+            if feat in modified:
+                modified[feat] = float(np.clip(modified[feat] + delta * cov, -1.0, 40000.0))
+
+        temp_after = predict_lst(modified)
+        reduction  = round(temp_before - temp_after, 2)
+
+        # Lookup table for display metadata
+        meta = MATERIAL_META.get(key, {})
+        materials.append({
+            "id":            key,
+            "label":         meta.get("label", key.replace("_", " ").title()),
+            "albedo_change": effects.get("albedo", 0),
+            "temp_before":   round(temp_before, 1),
+            "temp_after":    round(temp_after, 1),
+            "reduction_C":   reduction,
+            "cost_per_sqm":  cost,
+            "durability":    meta.get("durability", "Medium"),
+            "co2_impact":    meta.get("co2_impact", "Low"),
+            "recommended":   meta.get("recommended", True),
+        })
+
+    materials.sort(key=lambda m: m["reduction_C"], reverse=True)
+    return {
+        "zone": ZONE_DATA[target_zid]["name"],
+        "zone_id": target_zid,
+        "coverage_pct": coverage,
+        "materials": materials,
+    }
+
+
+MATERIAL_META = {
+    "cool_roofs":        {"label": "Cool Roof Coating",    "durability": "High",    "co2_impact": "Low",  "recommended": True},
+    "cool_pavements":    {"label": "Cool Pavement",        "durability": "High",    "co2_impact": "Med",  "recommended": True},
+    "high_albedo_paint": {"label": "High-Albedo Paint",    "durability": "Low",     "co2_impact": "Med",  "recommended": False},
+    "green_roofs":       {"label": "Green Roof",           "durability": "Med-High","co2_impact": "Neg",  "recommended": True},
+    "urban_greening":    {"label": "Urban Greening",       "durability": "Med-High","co2_impact": "Neg",  "recommended": True},
+}
 
 
 @app.post("/simulate")

@@ -302,13 +302,13 @@ def assign_neighborhoods(df):
 
     def get_zone(row):
         lon, lat = row["lon"], row["lat"]
-        if lon < lon_mid - 0.03 and lat > lat_mid:          return "Westhill"
-        elif lon > lon_mid + 0.03 and lat > lat_mid:        return "Riverside"
-        elif lon > lon_mid + 0.03 and lat < lat_mid:        return "Eastwood"
-        elif lon < lon_mid - 0.03 and lat < lat_mid:        return "Lakeside"
-        elif lat > lat_mid + 0.04:                           return "Northview"
-        elif lat < lat_mid - 0.04:                           return "Southpark"
-        else:                                                return "Downtown"
+        if lon < lon_mid - 0.03 and lat > lat_mid:          return "Andheri"
+        elif lon > lon_mid + 0.03 and lat > lat_mid:        return "Powai"
+        elif lon > lon_mid + 0.03 and lat < lat_mid:        return "Chembur"
+        elif lon < lon_mid - 0.03 and lat < lat_mid:        return "Worli"
+        elif lat > lat_mid + 0.04:                           return "Bandra"
+        elif lat < lat_mid - 0.04:                           return "Colaba"
+        else:                                                return "Fort"
 
     df["neighborhood"] = df.apply(get_zone, axis=1)
     print(f"✓ Neighborhoods: {df['neighborhood'].value_counts().to_dict()}")
