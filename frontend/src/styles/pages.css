@@ -12,6 +12,12 @@
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.3; }
+  50% { opacity: 0.15; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
 .custom-scrollbar::-webkit-scrollbar,
 .overview-page ::-webkit-scrollbar,
 .optimization-page ::-webkit-scrollbar,
@@ -101,6 +107,20 @@
 
 .heatmaps-page .thermal-gradient {
   background: linear-gradient(90deg, #00d4b4 0%, #ffaa2e 50%, #ff5627 100%);
+}
+
+.leaflet-tooltip.custom-tooltip {
+  background: rgba(15, 25, 40, 0.95);
+  border: 1px solid #1e2d45;
+  color: #e8edf5;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.leaflet-tooltip.custom-tooltip::before {
+  border-top-color: #1e2d45;
 }
 
 @media (max-width: 1100px) {

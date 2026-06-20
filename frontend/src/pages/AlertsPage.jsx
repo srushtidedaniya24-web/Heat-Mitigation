@@ -1,12 +1,32 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
+import { fetchHeatmap, fetchHotspots } from "../services/api";
 import "../styles/pages.css";
 
 export default function AlertsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "alerts");
+
+  const [zones, setZones] = useState([]);
+  const [hotspots, setHotspots] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchHeatmap(), fetchHotspots()])
+      .then(([heatData, hotspotData]) => {
+        setZones(heatData.zones || []);
+        setHotspots(hotspotData.hotspots || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const criticalCount = zones.filter(z => z.risk_level === "CRITICAL").length;
+  const highCount = zones.filter(z => z.risk_level === "HIGH").length;
+  const mediumCount = zones.filter(z => z.risk_level === "MEDIUM").length;
+  const totalAlerts = criticalCount + highCount + mediumCount;
 
   return (
     <div ref={rootRef} className="alerts-page data-grid-bg">
@@ -58,11 +78,11 @@ export default function AlertsPage() {
                 Critical Hotspots
               </span>
               <span className={"font-data-lg text-data-lg text-secondary"}>
-                12
+                {criticalCount + highCount}
               </span>
             </div>
             <div className={"h-2 w-full bg-surface-container-highest rounded-full overflow-hidden"}>
-              <div className={"h-full bg-secondary w-3/4"}></div>
+              <div className={"h-full bg-secondary"} style={{width: `${zones.length ? ((criticalCount + highCount) / zones.length) * 100 : 0}%`}}></div>
             </div>
           </div>
           <div className={"glass-panel p-4 rounded-lg border border-outline-variant"}>
@@ -75,7 +95,9 @@ export default function AlertsPage() {
               </span>
             </div>
             <p className={"font-body-sm text-body-sm text-on-surface-variant leading-relaxed"}>
-              Elevated surface temperatures detected in 4 sectors. Predicted peak intensity in 180 minutes. Deployment of mobile cooling units suggested for Sector 7G.
+              {zones.length > 0
+                ? `Elevated surface temperatures detected in ${criticalCount + highCount} sectors. ${hotspots.length > 0 ? `Hotspots: ${hotspots.map(h => h.name).join(", ")}. ` : ""}Predicted peak intensity in affected zones.`
+                : "Loading thermal intelligence data..."}
             </p>
           </div>
           <div className={"space-y-3"}>
@@ -83,32 +105,17 @@ export default function AlertsPage() {
               Active Zones
             </h4>
             <div className={"space-y-2"}>
-              <div className={"flex items-center justify-between p-3 bg-surface-container rounded border border-outline-variant/30"}>
-                <div className={"flex items-center gap-2"}>
-                  <span className={"material-symbols-outlined text-primary text-sm"}>
-                    location_on
-                  </span>
-                  <span className={"font-body-sm text-body-sm"}>
-                    Downtown Core
-                  </span>
+              {zones.slice(0, 4).map(z => (
+                <div key={z.zone_id} className={"flex items-center justify-between p-3 bg-surface-container rounded border border-outline-variant/30"}>
+                  <div className={"flex items-center gap-2"}>
+                    <span className={"material-symbols-outlined text-primary text-sm"}>
+                      location_on
+                    </span>
+                    <span className={"font-body-sm text-body-sm"}>{z.name}</span>
+                  </div>
+                  <span className={"font-data-sm text-data-sm text-secondary"}>{z.LST_celsius}°C</span>
                 </div>
-                <span className={"font-data-sm text-data-sm text-secondary"}>
-                  56°C
-                </span>
-              </div>
-              <div className={"flex items-center justify-between p-3 bg-surface-container rounded border border-outline-variant/30"}>
-                <div className={"flex items-center gap-2"}>
-                  <span className={"material-symbols-outlined text-primary text-sm"}>
-                    location_on
-                  </span>
-                  <span className={"font-body-sm text-body-sm"}>
-                    Northview High
-                  </span>
-                </div>
-                <span className={"font-data-sm text-data-sm text-secondary"}>
-                  48°C
-                </span>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -138,246 +145,88 @@ export default function AlertsPage() {
           </div>
           <div className={"flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide"}>
             <button className={"px-5 py-1.5 bg-primary text-on-primary rounded-full font-bold text-sm whitespace-nowrap"}>
-              All Alerts (24)
+              All Alerts ({totalAlerts})
             </button>
             <button className={"px-5 py-1.5 bg-surface-container-high text-secondary border border-secondary/30 rounded-full font-medium text-sm whitespace-nowrap hover:bg-secondary/10 transition-colors"}>
-              Critical (2)
+              Critical ({criticalCount})
             </button>
             <button className={"px-5 py-1.5 bg-surface-container-high text-on-secondary-container border border-secondary-container/30 rounded-full font-medium text-sm whitespace-nowrap hover:bg-secondary-container/10 transition-colors"}>
-              High (8)
+              High ({highCount})
             </button>
             <button className={"px-5 py-1.5 bg-surface-container-high text-tertiary border border-tertiary/30 rounded-full font-medium text-sm whitespace-nowrap hover:bg-tertiary/10 transition-colors"}>
-              Medium (11)
-            </button>
-            <button className={"px-5 py-1.5 bg-surface-container-high text-outline rounded-full font-medium text-sm whitespace-nowrap hover:bg-surface-variant/50 transition-colors"}>
-              Resolved (3)
+              Medium ({mediumCount})
             </button>
           </div>
           <div className={"space-y-4"}>
-            <div className={"alert-critical bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-secondary/50 transition-all group"} data-alert-card={"true"}>
-              <div className={"flex flex-col md:flex-row gap-6"}>
-                <div className={"flex-1"}>
-                  <div className={"flex items-center gap-3 mb-2"}>
-                    <span className={"px-2 py-0.5 bg-secondary/10 border border-secondary/40 text-secondary text-[10px] font-bold uppercase tracking-wider rounded thermal-pulse"}>
-                      Critical
-                    </span>
-                    <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                      ID: THERM-0922-A
-                    </span>
-                    <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
-                      <span className={"material-symbols-outlined text-sm"}>
-                        schedule
-                      </span>
-                      2 hours ago
-                    </span>
-                  </div>
-                  <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
-                    Extreme Heat Emergency - Downtown
-                  </h3>
-                  <div className={"flex flex-wrap gap-4 mt-4"}>
-                    <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
-                      <p className={"text-[10px] text-on-surface-variant uppercase"}>
-                        Threshold Status
-                      </p>
-                      <p className={"font-data-lg text-data-lg text-secondary"}>
-                        56°C
-                        <span className={"text-sm font-normal text-on-surface-variant"}>
-                          Exceeded
+            {zones.filter(z => z.risk_level === "CRITICAL" || z.risk_level === "HIGH").map((z, i) => {
+              const isCritical = z.risk_level === "CRITICAL";
+              const driverText = hotspots.find(h => h.zone_id === z.zone_id)
+                ?.top_heat_drivers?.slice(0, 2).map(d => `${d.feature.replace(/_/g, " ")} (+${d.contribution_C}°C)`).join(", ") || "";
+              return (
+                <div key={z.zone_id}
+                  className={`${isCritical ? "alert-critical" : "alert-high"} bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-secondary/50 transition-all group`}
+                  data-alert-card={"true"}
+                >
+                  <div className={"flex flex-col md:flex-row gap-6"}>
+                    <div className={"flex-1"}>
+                      <div className={"flex items-center gap-3 mb-2"}>
+                        <span className={`px-2 py-0.5 ${isCritical ? "bg-secondary/10 border-secondary/40 text-secondary thermal-pulse" : "bg-secondary-container/10 border-secondary-container/40 text-secondary-container"} text-[10px] font-bold uppercase tracking-wider rounded border`}>
+                          {isCritical ? "Critical" : "High Priority"}
                         </span>
-                      </p>
-                    </div>
-                    <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
-                      <p className={"text-[10px] text-on-surface-variant uppercase"}>
-                        Population Impact
-                      </p>
-                      <p className={"font-data-lg text-data-lg text-on-surface"}>
-                        31,345
-                        <span className={"text-sm font-normal text-on-surface-variant"}>
-                          At Risk
+                        <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
+                          ID: ZN-{z.zone_id.toUpperCase()}
                         </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className={"flex md:flex-col justify-end gap-2"}>
-                  <button className={"flex-1 md:flex-none px-6 py-2 bg-secondary text-on-secondary font-bold rounded hover:opacity-90 active:scale-95 transition-all"}>
-                    View on Map
-                  </button>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
-                    Mark Resolved
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className={"alert-critical bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-secondary/50 transition-all group"} data-alert-card={"true"}>
-              <div className={"flex flex-col md:flex-row gap-6"}>
-                <div className={"flex-1"}>
-                  <div className={"flex items-center gap-3 mb-2"}>
-                    <span className={"px-2 py-0.5 bg-secondary/10 border border-secondary/40 text-secondary text-[10px] font-bold uppercase tracking-wider rounded thermal-pulse"}>
-                      Critical
-                    </span>
-                    <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                      ID: THERM-0922-B
-                    </span>
-                    <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
-                      <span className={"material-symbols-outlined text-sm"}>
-                        schedule
-                      </span>
-                      5 hours ago
-                    </span>
-                  </div>
-                  <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
-                    Heat Index Spike - Northview
-                  </h3>
-                  <div className={"flex flex-wrap gap-4 mt-4"}>
-                    <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
-                      <p className={"text-[10px] text-on-surface-variant uppercase"}>
-                        Rate of Change
-                      </p>
-                      <p className={"font-data-lg text-data-lg text-secondary"}>
-                        +4.2°C
-                        <span className={"text-sm font-normal text-on-surface-variant"}>
-                          Increase
+                        <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
+                          <span className={"material-symbols-outlined text-sm"}>schedule</span>
+                          {i + 1}h ago
                         </span>
-                      </p>
+                      </div>
+                      <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
+                        Extreme Heat Alert - {z.name}
+                      </h3>
+                      <div className={"flex flex-wrap gap-4 mt-4"}>
+                        <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
+                          <p className={"text-[10px] text-on-surface-variant uppercase"}>Surface Temp</p>
+                          <p className={"font-data-lg text-data-lg text-secondary"}>
+                            {z.LST_celsius}°C
+                            <span className={"text-sm font-normal text-on-surface-variant"}> {z.risk_level}</span>
+                          </p>
+                        </div>
+                        <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
+                          <p className={"text-[10px] text-on-surface-variant uppercase"}>Population Impact</p>
+                          <p className={"font-data-lg text-data-lg text-on-surface"}>
+                            {z.population?.toLocaleString()}
+                            <span className={"text-sm font-normal text-on-surface-variant"}> At Risk</span>
+                          </p>
+                        </div>
+                      </div>
+                      {driverText && (
+                        <p className={"font-body-sm text-body-sm text-on-surface-variant mt-3"}>
+                          Top drivers: {driverText}
+                        </p>
+                      )}
                     </div>
-                    <div className={"bg-surface-container-low px-4 py-2 rounded border border-outline-variant"}>
-                      <p className={"text-[10px] text-on-surface-variant uppercase"}>
-                        Sensor Group
-                      </p>
-                      <p className={"font-data-lg text-data-lg text-on-surface"}>
-                        NV-04 to NV-09
-                      </p>
+                    <div className={"flex md:flex-col justify-end gap-2"}>
+                      <button className={"flex-1 md:flex-none px-6 py-2 bg-secondary text-on-secondary font-bold rounded hover:opacity-90 active:scale-95 transition-all"}>
+                        View on Map
+                      </button>
+                      <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
+                        Mark Resolved
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className={"flex md:flex-col justify-end gap-2"}>
-                  <button className={"flex-1 md:flex-none px-6 py-2 bg-secondary text-on-secondary font-bold rounded hover:opacity-90 active:scale-95 transition-all"}>
-                    View on Map
-                  </button>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
-                    Mark Resolved
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className={"alert-high bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-secondary-container/50 transition-all"} data-alert-card={"true"}>
-              <div className={"flex flex-col md:flex-row gap-6"}>
-                <div className={"flex-1"}>
-                  <div className={"flex items-center gap-3 mb-2"}>
-                    <span className={"px-2 py-0.5 bg-secondary-container/10 border border-secondary-container/40 text-secondary-container text-[10px] font-bold uppercase tracking-wider rounded"}>
-                      High Priority
-                    </span>
-                    <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                      ID: NDVI-0411
-                    </span>
-                    <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
-                      <span className={"material-symbols-outlined text-sm"}>
-                        schedule
-                      </span>
-                      1 day ago
-                    </span>
-                  </div>
-                  <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
-                    NDVI Critically Low - Eastwood
-                  </h3>
-                  <p className={"font-body-sm text-body-sm text-on-surface-variant max-w-2xl"}>
-                    Vegetation health index has dropped below critical levels (0.10). Significant moisture stress detected. Irrigation intervention required to prevent thermal absorption increase.
-                  </p>
-                </div>
-                <div className={"flex md:flex-col justify-end gap-2"}>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-secondary-container text-secondary-container font-bold rounded hover:bg-secondary-container/10 transition-all"}>
-                    View on Map
-                  </button>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
-                    Mark Resolved
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className={"alert-high bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-secondary-container/50 transition-all"} data-alert-card={"true"}>
-              <div className={"flex flex-col md:flex-row gap-6"}>
-                <div className={"flex-1"}>
-                  <div className={"flex items-center gap-3 mb-2"}>
-                    <span className={"px-2 py-0.5 bg-secondary-container/10 border border-secondary-container/40 text-secondary-container text-[10px] font-bold uppercase tracking-wider rounded"}>
-                      High Priority
-                    </span>
-                    <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                      ID: OPS-882
-                    </span>
-                    <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
-                      <span className={"material-symbols-outlined text-sm"}>
-                        schedule
-                      </span>
-                      2 days ago
-                    </span>
-                  </div>
-                  <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
-                    Cool Roof Intervention Due - Riverside
-                  </h3>
-                  <p className={"font-body-sm text-body-sm text-on-surface-variant max-w-2xl"}>
-                    Albedo values in the Riverside industrial zone have degraded by 15%. Re-coating schedule is overdue. Predicted heat gain impact: +2.1°C per building.
-                  </p>
-                </div>
-                <div className={"flex md:flex-col justify-end gap-2"}>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-secondary-container text-secondary-container font-bold rounded hover:bg-secondary-container/10 transition-all"}>
-                    View on Map
-                  </button>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
-                    Mark Resolved
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className={"alert-medium bg-surface-container p-6 rounded-lg border border-outline-variant hover:border-tertiary/50 transition-all"} data-alert-card={"true"}>
-              <div className={"flex flex-col md:flex-row gap-6"}>
-                <div className={"flex-1"}>
-                  <div className={"flex items-center gap-3 mb-2"}>
-                    <span className={"px-2 py-0.5 bg-tertiary/10 border border-tertiary/40 text-tertiary text-[10px] font-bold uppercase tracking-wider rounded"}>
-                      Medium
-                    </span>
-                    <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                      ID: SYS-ML-01
-                    </span>
-                    <span className={"ml-auto md:ml-0 font-data-sm text-data-sm text-on-surface-variant flex items-center gap-1"}>
-                      <span className={"material-symbols-outlined text-sm"}>
-                        schedule
-                      </span>
-                      3 days ago
-                    </span>
-                  </div>
-                  <h3 className={"font-headline-sm text-headline-sm text-on-surface mb-2"}>
-                    Model Retraining Recommended
-                  </h3>
-                  <p className={"font-body-sm text-body-sm text-on-surface-variant max-w-2xl"}>
-                    Observed thermal patterns deviate from current AI predictive model by 8%. Retraining with new sensor data from the last 72 hours is recommended for accuracy.
-                  </p>
-                </div>
-                <div className={"flex md:flex-col justify-end gap-2"}>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-tertiary text-tertiary font-bold rounded hover:bg-tertiary/10 transition-all"}>
-                    View Details
-                  </button>
-                  <button className={"flex-1 md:flex-none px-6 py-2 border border-outline-variant text-on-surface hover:bg-surface-variant/50 rounded transition-all"}>
-                    Mark Resolved
-                  </button>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
           <div className={"md:hidden fixed bottom-4 right-4 left-4 glass-panel p-4 rounded-xl flex items-center justify-between border-primary/30 z-[70]"}>
             <div className={"flex items-center gap-3"}>
               <span className={"w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center"}>
-                <span className={"material-symbols-outlined text-secondary"}>
-                  warning
-                </span>
+                <span className={"material-symbols-outlined text-secondary"}>warning</span>
               </span>
               <div>
-                <p className={"font-data-sm text-data-sm text-on-surface"}>
-                  2 Critical Alerts
-                </p>
-                <p className={"text-[10px] text-on-surface-variant"}>
-                  Action required in Sector 4
-                </p>
+                <p className={"font-data-sm text-data-sm text-on-surface"}>{criticalCount} Critical Alerts</p>
+                <p className={"text-[10px] text-on-surface-variant"}>Action required in {hotspots.length} sectors</p>
               </div>
             </div>
             <button className={"bg-primary text-on-primary font-bold px-4 py-2 rounded-lg text-sm"}>

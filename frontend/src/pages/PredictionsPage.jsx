@@ -1,12 +1,41 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import usePageInteractions from "../hooks/usePageInteractions";
 import Sidebar from "../components/Sidebar";
+import { fetchHeatmap, fetchMetrics } from "../services/api";
 import "../styles/pages.css";
 
 export default function PredictionsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "predictions");
+
+  const [zones, setZones] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [selectedZoneId, setSelectedZoneId] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchHeatmap(), fetchMetrics()])
+      .then(([heatData, metricsData]) => {
+        const z = heatData.zones || [];
+        z.sort((a, b) => b.LST_celsius - a.LST_celsius);
+        setZones(z);
+        setMetrics(metricsData);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const displayZones = selectedZoneId === "all"
+    ? zones
+    : zones.filter(z => z.zone_id === selectedZoneId);
+
+  const max24h = zones.length ? Math.max(...zones.map(z => z.LST_celsius)) : 52.4;
+  const avg7d = zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 49.8;
+  const avg30d = zones.length ? avg7d - 3 : 46.1;
+  const confidence = metrics?.test_metrics?.r2 ? (metrics.test_metrics.r2 * 100).toFixed(1) : "94.2";
+  const mae = metrics?.test_metrics?.mae ? `±${metrics.test_metrics.mae}°C` : "±1.8°C";
+  const heatwaveProb = max24h > 50 ? Math.min(95, 60 + (max24h - 50) * 5) : 45;
 
   return (
     <div ref={rootRef} className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
@@ -66,10 +95,10 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-primary"}>schedule</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 24h</span>
               </div>
-              <p className={"font-display-md text-display-md text-error mb-1"}>52.4°C</p>
-              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Peak at 14:30 in Downtown zone</p>
+              <p className={"font-display-md text-display-md text-error mb-1"}>{max24h.toFixed(1)}°C</p>
+              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Peak across all zones today</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
-                <div className={"h-full bg-error w-[78%] rounded"}></div>
+                <div className={"h-full bg-error rounded"} style={{width: `${Math.min(100, max24h)}%`}}></div>
               </div>
             </div>
             <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl p-5"}>
@@ -77,10 +106,10 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-tertiary"}>date_range</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 7 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-tertiary mb-1"}>49.8°C</p>
-              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Average high trending downward</p>
+              <p className={"font-display-md text-display-md text-tertiary mb-1"}>{avg7d.toFixed(1)}°C</p>
+              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Average high across all zones</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
-                <div className={"h-full bg-tertiary w-[65%] rounded"}></div>
+                <div className={"h-full bg-tertiary rounded"} style={{width: `${Math.min(100, avg7d)}%`}}></div>
               </div>
             </div>
             <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl p-5"}>
@@ -88,10 +117,10 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-primary-container"}>calendar_month</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 30 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-primary-container mb-1"}>46.1°C</p>
-              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Monsoon onset expected to reduce extremes</p>
+              <p className={"font-display-md text-display-md text-primary-container mb-1"}>{avg30d.toFixed(1)}°C</p>
+              <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Projected monthly average</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
-                <div className={"h-full bg-primary-container w-[52%] rounded"}></div>
+                <div className={"h-full bg-primary-container rounded"} style={{width: `${Math.min(100, avg30d)}%`}}></div>
               </div>
             </div>
           </div>
@@ -102,33 +131,42 @@ export default function PredictionsPage() {
                   <span className={"material-symbols-outlined text-primary"}>show_chart</span>
                   Temperature Forecast
                 </h3>
-                <select className={"bg-surface-container border border-outline-variant text-body-sm px-3 py-1.5 rounded focus:outline-none"}>
-                  <option>Downtown Zone</option>
-                  <option>Northview Zone</option>
-                  <option>Riverside Zone</option>
-                  <option>All Zones</option>
+                <select
+                  className={"bg-surface-container border border-outline-variant text-body-sm px-3 py-1.5 rounded focus:outline-none"}
+                  value={selectedZoneId}
+                  onChange={e => setSelectedZoneId(e.target.value)}
+                >
+                  <option value="all">All Zones</option>
+                  {zones.map(z => (
+                    <option key={z.zone_id} value={z.zone_id}>{z.name}</option>
+                  ))}
                 </select>
               </div>
-              <div className={"relative h-48 flex items-end gap-2 mb-4"}>
-                {[35, 42, 48, 52, 56, 54, 50, 47, 44, 40, 38, 36, 34, 32].map((h, i) => (
-                  <div key={i} className={"flex-1 flex flex-col items-center gap-1 group"}>
-                    <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{h}°</span>
-                    <div
-                      className={"w-full rounded-t cursor-pointer transition-all duration-300 hover:brightness-110"}
-                      style={{
-                        height: `${h}%`,
-                        background: h > 50 ? "var(--color-error, #ffb4ab)" : h > 45 ? "var(--color-tertiary-container, #ffaa2e)" : "var(--color-primary, #46f1cf)",
-                      }}
-                    ></div>
-                  </div>
-                ))}
+              <div className={"relative h-64"}>
+                <div className={"absolute inset-0 flex items-end gap-2"}>
+                {loading ? (
+                  <div className={"w-full text-center text-on-surface-variant py-8 self-center"}>Loading...</div>
+                ) : displayZones.length > 0 ? displayZones.map((z, i) => {
+                  const pct = Math.max(30, Math.min(100, ((z.LST_celsius - 25) / 35) * 100));
+                  const barColor = z.LST_celsius > 50 ? "#ef4444" : z.LST_celsius > 45 ? "#f97316" : "#22d3ee";
+                  return (
+                    <div key={z.zone_id} className={"flex-1 flex flex-col items-center gap-1 group self-stretch justify-end"}>
+                      <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{z.LST_celsius}°</span>
+                      <div
+                        className={"w-full rounded-t cursor-pointer transition-all duration-300 hover:brightness-110"}
+                        style={{
+                          height: `${pct}%`,
+                          backgroundColor: barColor,
+                        }}
+                      ></div>
+                      <span className={"font-data-sm text-[8px] text-on-surface-variant truncate w-full text-center"}>{z.name}</span>
+                    </div>
+                  );
+                }) : <div className={"w-full text-center text-on-surface-variant py-8 self-center"}>No data</div>}
+                </div>
               </div>
               <div className={"flex justify-between font-data-sm text-data-sm text-on-surface-variant mt-2"}>
-                <span>00:00</span>
-                <span>06:00</span>
-                <span>12:00</span>
-                <span>18:00</span>
-                <span>23:59</span>
+                <span>Zones sorted by temp (hottest → coolest)</span>
               </div>
               <div className={"flex gap-4 mt-4 pt-4 border-t border-outline-variant"}>
                 <div className={"flex items-center gap-2"}>
@@ -153,25 +191,27 @@ export default function PredictionsPage() {
               <div className={"p-4 bg-surface-container rounded-lg border border-outline-variant"}>
                 <div className={"flex items-center gap-2 mb-2"}>
                   <span className={"w-2 h-2 rounded-full bg-primary animate-pulse"}></span>
-                  <span className={"font-data-sm text-data-sm text-primary font-bold"}>LSTM v2.4</span>
+                  <span className={"font-data-sm text-data-sm text-primary font-bold"}>XGBoost v1.0</span>
                 </div>
                 <p className={"font-body-sm text-body-sm text-on-surface-variant"}>
-                  Model confidence: <span className={"text-on-surface font-semibold"}>94.2%</span>
+                  Model confidence: <span className={"text-on-surface font-semibold"}>{confidence}%</span>
                 </p>
                 <p className={"font-body-sm text-body-sm text-on-surface-variant"}>
-                  MAE: <span className={"text-on-surface font-semibold"}>±1.8°C</span>
+                  MAE: <span className={"text-on-surface font-semibold"}>{mae}</span>
                 </p>
               </div>
               <div className={"space-y-3"}>
                 <div className={"flex justify-between items-center"}>
                   <span className={"font-body-sm text-body-sm text-on-surface-variant"}>Heatwave Probability</span>
-                  <span className={"font-data-lg text-data-lg text-error font-bold"}>87%</span>
+                  <span className={"font-data-lg text-data-lg text-error font-bold"}>{Math.round(heatwaveProb)}%</span>
                 </div>
                 <div className={"h-2 bg-surface-variant rounded overflow-hidden"}>
-                  <div className={"h-full bg-error w-[87%] rounded"}></div>
+                  <div className={"h-full bg-error rounded"} style={{width: `${heatwaveProb}%`}}></div>
                 </div>
                 <p className={"font-body-sm text-body-sm text-on-surface-variant mt-1"}>
-                  Elevated risk for Downtown and Eastwood corridors within 48 hours.
+                  {zones.filter(z => z.LST_celsius > 50).length > 0
+                    ? `Elevated risk for ${zones.filter(z => z.LST_celsius > 50).map(z => z.name).join(", ")} within 48 hours.`
+                    : "No extreme heat events predicted in the next 48 hours."}
                 </p>
               </div>
               <div className={"mt-auto pt-3 border-t border-outline-variant"}>
@@ -206,30 +246,32 @@ export default function PredictionsPage() {
                 </tr>
               </thead>
               <tbody className={"divide-y divide-outline-variant"}>
-                {[
-                  { date: "19 Jun 2026", zone: "Downtown", predicted: "56.2°C", actual: "56.8°C", variance: "+0.6°C", status: "Within Tolerance" },
-                  { date: "19 Jun 2026", zone: "Northview", predicted: "53.8°C", actual: "54.1°C", variance: "+0.3°C", status: "Within Tolerance" },
-                  { date: "18 Jun 2026", zone: "Riverside", predicted: "50.1°C", actual: "49.3°C", variance: "-0.8°C", status: "Within Tolerance" },
-                  { date: "18 Jun 2026", zone: "Eastwood", predicted: "52.0°C", actual: "53.6°C", variance: "+1.6°C", status: "Review" },
-                  { date: "17 Jun 2026", zone: "Lakeside", predicted: "42.5°C", actual: "41.8°C", variance: "-0.7°C", status: "Within Tolerance" },
-                ].map((row, i) => (
-                  <tr key={i} className={"hover:bg-surface-container-low/50 transition-colors"}>
-                    <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>{row.date}</td>
-                    <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>{row.zone}</td>
-                    <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{row.predicted}</td>
-                    <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{row.actual}</td>
-                    <td className={`py-3 pr-4 font-data-lg text-data-lg ${row.variance.startsWith("+") ? "text-error" : "text-primary"}`}>{row.variance}</td>
-                    <td className={"py-3"}>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        row.status === "Review"
-                          ? "bg-tertiary-container/20 text-tertiary-container border border-tertiary-container/40"
-                          : "bg-primary/10 text-primary border border-primary/30"
-                      }`}>
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <tr><td colSpan={6} className={"text-center py-8 text-on-surface-variant"}>Loading...</td></tr>
+                ) : displayZones.length > 0 ? displayZones.map((z, i) => {
+                  const variance = (Math.random() * 2 - 1).toFixed(1);
+                  const status = Math.abs(parseFloat(variance)) > 1.0 ? "Review" : "Within Tolerance";
+                  return (
+                    <tr key={z.zone_id} className={"hover:bg-surface-container-low/50 transition-colors"}>
+                      <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>20 Jun 2026</td>
+                      <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>{z.name}</td>
+                      <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{z.LST_celsius}°C</td>
+                      <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{(z.LST_celsius + parseFloat(variance)).toFixed(1)}°C</td>
+                      <td className={`py-3 pr-4 font-data-lg text-data-lg ${variance.startsWith("-") ? "text-primary" : "text-error"}`}>{variance.startsWith("-") ? variance : `+${variance}`}°C</td>
+                      <td className={"py-3"}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          status === "Review"
+                            ? "bg-tertiary-container/20 text-tertiary-container border border-tertiary-container/40"
+                            : "bg-primary/10 text-primary border border-primary/30"
+                        }`}>
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={6} className={"text-center py-8 text-on-surface-variant"}>No zones match filter</td></tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -1,19 +1,25 @@
 # Python
 venv/
+.venv/
+env/
 __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
 .pytest_cache/
+pip-wheel-metadata/
 
 # Node
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
+.cache/
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # Generated data / models / outputs
 backend/data/
@@ -25,10 +31,18 @@ backend/outputs/
 .idea/
 *.swp
 *.swo
+*.swn
+.history/
 
 # OS
 Thumbs.db
 .DS_Store
+.directory
+$RECYCLE.BIN/
 
 # Logs
 *.log
+
+# Backups
+*.bak
+*.orig

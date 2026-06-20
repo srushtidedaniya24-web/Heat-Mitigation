@@ -26,7 +26,7 @@ export default function Sidebar() {
       : "text-on-surface-variant hover:text-on-surface px-4 py-3 flex items-center gap-3 hover:bg-surface-container-high/50 transition-all duration-200";
 
   return (
-    <aside className="fixed left-0 top-16 bottom-0 w-64 z-50 flex flex-col py-panel-gap bg-surface-container-lowest border-r border-outline-variant">
+    <aside className="fixed left-0 top-16 bottom-0 w-64 z-[500] flex flex-col py-panel-gap bg-surface-container-lowest border-r border-outline-variant">
       <div className="px-6 mb-6">
         <h2 className="font-headline-sm text-headline-sm text-primary">Urban Core</h2>
         <p className="font-body-sm text-body-sm text-on-surface-variant">Sensor Network Active</p>

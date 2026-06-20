@@ -1,11 +1,47 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
+import { fetchHeatmap, fetchRecommendations } from "../services/api";
 import "../styles/pages.css";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 export default function OverviewPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "overview");
+
+  const [zones, setZones] = useState([]);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [recs, setRecs] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchHeatmap()
+      .then(data => {
+        setZones(data.zones || []);
+        if (data.zones?.length) setSelectedZone(data.zones[0]);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (selectedZone) {
+      fetchRecommendations(selectedZone.zone_id)
+        .then(setRecs)
+        .catch(() => setRecs(null));
+    }
+  }, [selectedZone]);
+
+  const cityAvg = zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 0;
 
   return (
     <div ref={rootRef} className="overview-page bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
@@ -66,76 +102,52 @@ export default function OverviewPage() {
       <div className={"flex flex-1 pt-16 h-full overflow-hidden"}>
         <Sidebar />
         <main className={"relative flex-1 bg-surface-container-lowest overflow-hidden"}>
-          <div className={"absolute inset-0 w-full h-full"}>
-            <div className={"w-full h-full bg-[#000d26]"} data-alt={"A sophisticated dark-themed satellite map of a futuristic Indian city at night, with glowing grid lines and stylized architectural silhouettes. The map features thermal hotspots represented as glowing gradients from teal to deep amber and intense crimson, specifically highlighting different metropolitan zones with high-tech data visualization overlays and sharp digital precision."} style={{"backgroundImage": "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCurVZqjqYjJnYfQOi83SLnDy9mG61Z0c6fNQ0LV8Pd6TqXgIwLYIt1OhfL3soBJgf1Mc1b02s2nupQ6hpW-pgrD3SyeLRvxlbmrqDxKmWZIZLALdbT-yn2p6nPqo6ETDDmX3t5DYuOnxhvjDfPXBiF3BkBBSVq5uE4UjgxqI-Q1-qsfnUZD-WdSRjLg1G2AML236wEov9eRIDszTYZGbhAuuGinbZ_FlGxctmwEdiKLmSx-ea4-E27GjI1pgTiq2tKaukl7c9m1zo')"}}></div>
-            <div className={"absolute inset-0 pointer-events-none"}>
-              <div className={"absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"}>
-                <div className={"flex flex-col items-center gap-2"}>
-                  <div className={"relative flex items-center justify-center"}>
-                    <div className={"absolute w-8 h-8 bg-error rounded-full opacity-30 animate-ping"}></div>
-                    <div className={"w-4 h-4 bg-error rounded-full border-2 border-white"}></div>
-                  </div>
-                  <div className={"bg-surface-container-highest/90 backdrop-blur-md border border-error p-2 rounded flex items-center gap-3 shadow-xl"}>
-                    <span className={"font-body-sm font-bold text-on-surface"}>
-                      Downtown
-                    </span>
-                    <span className={"font-data-lg text-error"}>
-                      56.8°C
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className={"absolute top-[20%] left-[40%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-error-container p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-error rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Northview: 54.1°C
-                  </span>
-                </div>
-              </div>
-              <div className={"absolute top-[35%] left-[65%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-secondary-container p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-secondary-container rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Riverside: 49.3°C
-                  </span>
-                </div>
-              </div>
-              <div className={"absolute top-[60%] left-[30%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-secondary-container p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-secondary-container rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Westhill: 47.2°C
-                  </span>
-                </div>
-              </div>
-              <div className={"absolute top-[70%] left-[60%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-error-container p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-error rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Eastwood: 53.6°C
-                  </span>
-                </div>
-              </div>
-              <div className={"absolute top-[15%] left-[75%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-primary p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-primary rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Lakeside: 41.8°C
-                  </span>
-                </div>
-              </div>
-              <div className={"absolute top-[80%] left-[45%] pointer-events-auto cursor-pointer group"}>
-                <div className={"bg-surface-container-high/80 border border-tertiary-container p-1 px-3 rounded-full flex items-center gap-2 group-hover:scale-105 transition-transform"}>
-                  <span className={"w-2 h-2 bg-tertiary-container rounded-full"}></span>
-                  <span className={"text-[11px] font-bold"}>
-                    Southpark: 44.6°C
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className={"absolute top-6 left-6 flex flex-col gap-2"}>
+          <MapContainer
+            center={[19.015, 72.865]}
+            zoom={12}
+            className={"w-full h-full"}
+            zoomControl={true}
+            style={{ background: "#000d26" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {zones.map(z => {
+              const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
+                                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
+              const isHottest = zones.length && z.LST_celsius === Math.max(...zones.map(x => x.LST_celsius));
+              const icon = L.divIcon({
+                className: "custom-zone-marker",
+                html: isHottest
+                  ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                       <div style="position:relative;display:flex;align-items:center;justify-content:center">
+                         <div style="position:absolute;width:32px;height:32px;background:${riskColor};border-radius:50%;opacity:0.3;animation:pulse 2s infinite"></div>
+                         <div style="width:16px;height:16px;background:${riskColor};border-radius:50%;border:2px solid white"></div>
+                       </div>
+                       <div style="background:rgba(15,25,40,0.9);backdrop-filter:blur(8px);border:1px solid ${riskColor};padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">
+                         <span style="font-size:13px;font-weight:700;color:#e8edf5">${z.name}</span>
+                         <span style="font-size:16px;font-weight:700;color:${riskColor}">${z.LST_celsius}°C</span>
+                       </div>
+                     </div>`
+                  : `<div style="background:rgba(15,25,40,0.85);backdrop-filter:blur(4px);border:1px solid ${riskColor};padding:4px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;transition:transform 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.4)">
+                       <span style="width:8px;height:8px;border-radius:50%;background:${riskColor};display:inline-block"></span>
+                       <span style="font-size:11px;font-weight:700;color:#e8edf5">${z.name}: ${z.LST_celsius}°C</span>
+                     </div>`,
+                iconSize: isHottest ? [200, 64] : [160, 28],
+                iconAnchor: isHottest ? [100, 64] : [80, 14],
+              });
+              return (
+                <Marker
+                  key={z.zone_id}
+                  position={[z.lat, z.lon]}
+                  icon={icon}
+                  eventHandlers={{ click: () => setSelectedZone(z) }}
+                />
+              );
+            })}
+          </MapContainer>
+          <div className={"absolute top-6 left-6 flex flex-col gap-2 z-[1000]"}>
             <div className={"bg-surface-container-low/90 backdrop-blur border border-outline-variant rounded p-1 flex flex-col"}>
               <button className={"p-2 bg-primary/20 text-primary rounded mb-1"}>
                 <span className={"material-symbols-outlined"}>
@@ -154,7 +166,7 @@ export default function OverviewPage() {
               </button>
             </div>
           </div>
-          <div className={"absolute top-6 right-6 flex flex-col items-center gap-3"}>
+          <div className={"absolute top-6 right-6 flex flex-col items-center gap-3 z-[1000]"}>
             <div className={"bg-surface-container-low/90 backdrop-blur border border-outline-variant p-3 rounded-xl flex flex-col items-center"}>
               <span className={"font-data-sm text-[10px] mb-2 text-on-surface-variant"}>
                 60°C
@@ -165,7 +177,7 @@ export default function OverviewPage() {
               </span>
             </div>
           </div>
-          <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-surface-container-low/95 backdrop-blur border border-outline-variant p-4 rounded-xl shadow-2xl"}>
+          <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-surface-container-low/95 backdrop-blur border border-outline-variant p-4 rounded-xl shadow-2xl z-[1000]"}>
             <div className={"flex items-center justify-between mb-3 px-2"}>
               <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
                 08:00 AM
@@ -187,7 +199,7 @@ export default function OverviewPage() {
           <div className={"p-6 border-b border-outline-variant"}>
             <div className={"flex items-center justify-between mb-4"}>
               <h2 className={"font-headline-sm text-headline-sm text-on-surface tracking-wide uppercase"}>
-                Downtown
+                {selectedZone?.name || "Select a zone"}
               </h2>
               <span className={"material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-on-surface"}>
                 close
@@ -197,11 +209,11 @@ export default function OverviewPage() {
               <div className={"relative mb-2"}>
                 <div className={"absolute -inset-4 rounded-full border border-error/20 pulse-ring"}></div>
                 <span className={"font-data-lg text-[42px] leading-tight text-error tracking-tighter"}>
-                  56.8°C
+                  {selectedZone?.LST_celsius || "--"}°C
                 </span>
               </div>
               <span className={"font-data-sm text-data-sm text-error/80 uppercase tracking-widest"}>
-                Ambient Air Temp
+                Surface Temp
               </span>
             </div>
             <div className={"space-y-4"}>
@@ -210,18 +222,18 @@ export default function OverviewPage() {
                   Heat Risk Index
                 </span>
                 <span className={"font-data-lg text-error"}>
-                  9.2/10
+                  {selectedZone?.heat_risk_index ?? "--"}/10
                 </span>
               </div>
               <div className={"h-2 w-full bg-surface-variant rounded-full overflow-hidden"}>
-                <div className={"h-full bg-error"} style={{"width": "92%"}}></div>
+                <div className={"h-full bg-error"} style={{width: `${(selectedZone?.heat_risk_index ?? 0) * 10}%`}}></div>
               </div>
               <div className={"flex gap-2 pt-2"}>
                 <span className={"px-2 py-0.5 bg-error/10 border border-error/40 text-error text-[10px] font-bold rounded"}>
-                  CRITICAL
+                  {selectedZone?.risk_level || "--"}
                 </span>
                 <span className={"px-2 py-0.5 bg-on-surface-variant/10 border border-on-surface-variant/40 text-on-surface-variant text-[10px] font-bold rounded"}>
-                  POP: 31,345
+                  POP: {selectedZone?.population?.toLocaleString() || "--"}
                 </span>
               </div>
             </div>
@@ -235,83 +247,59 @@ export default function OverviewPage() {
                 AI/ML Insights
               </h3>
             </div>
-            <ul className={"space-y-3 mb-6"}>
-              <li className={"flex items-start gap-3"}>
-                <span className={"material-symbols-outlined text-error text-lg mt-0.5"}>
-                  warning
-                </span>
-                <p className={"font-body-sm text-on-surface-variant"}>
-                  <span className={"text-on-surface font-medium"}>
-                    Low-albedo roofs
-                  </span>
-                  absorbing 85% of solar radiation.
-                </p>
-              </li>
-              <li className={"flex items-start gap-3"}>
-                <span className={"material-symbols-outlined text-error text-lg mt-0.5"}>
-                  warning
-                </span>
-                <p className={"font-body-sm text-on-surface-variant"}>
-                  <span className={"text-on-surface font-medium"}>
-                    Road density
-                  </span>
-                  above 45% creates massive thermal storage.
-                </p>
-              </li>
-              <li className={"flex items-start gap-3"}>
-                <span className={"material-symbols-outlined text-error text-lg mt-0.5"}>
-                  warning
-                </span>
-                <p className={"font-body-sm text-on-surface-variant"}>
-                  <span className={"text-on-surface font-medium"}>
-                    Low NDVI
-                  </span>
-                  index (0.12) indicates severe lack of vegetation.
-                </p>
-              </li>
-              <li className={"flex items-start gap-3"}>
-                <span className={"material-symbols-outlined text-primary text-lg mt-0.5"}>
-                  check_circle
-                </span>
-                <p className={"font-body-sm text-on-surface-variant"}>
-                  <span className={"text-on-surface font-medium"}>
-                    Cool pavement
-                  </span>
-                  projects could mitigate up to 3.2°C.
-                </p>
-              </li>
-            </ul>
-            <div className={"space-y-3"}>
-              <h4 className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest mb-2"}>
-                SHAP Feature Importance
-              </h4>
-              <div className={"space-y-2"}>
-                <div className={"flex items-center gap-3"}>
-                  <span className={"w-20 font-data-sm text-[10px] truncate"}>
-                    Roof Albedo
-                  </span>
-                  <div className={"flex-1 h-3 bg-error/20 rounded overflow-hidden"}>
-                    <div className={"h-full bg-error"} style={{"width": "85%"}}></div>
+            {recs?.top_heat_drivers ? (
+              <>
+                <ul className={"space-y-3 mb-6"}>
+                  {recs.top_heat_drivers.slice(0, 3).map((d, i) => (
+                    <li key={i} className={"flex items-start gap-3"}>
+                      <span className={"material-symbols-outlined text-error text-lg mt-0.5"}>
+                        warning
+                      </span>
+                      <p className={"font-body-sm text-on-surface-variant"}>
+                        <span className={"text-on-surface font-medium"}>{d.feature.replace(/_/g, " ")}</span>
+                        {" "}contributing +{d.contribution_C}°C.
+                      </p>
+                    </li>
+                  ))}
+                  {recs.recommendations?.filter(r => r.recommended).slice(0, 1).map((r, i) => (
+                    <li key={`rec-${i}`} className={"flex items-start gap-3"}>
+                      <span className={"material-symbols-outlined text-primary text-lg mt-0.5"}>
+                        check_circle
+                      </span>
+                      <p className={"font-body-sm text-on-surface-variant"}>
+                        <span className={"text-on-surface font-medium"}>{r.label}</span>
+                        {" "}could mitigate up to {Math.abs(r.reduction_C)}°C.
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <div className={"space-y-3"}>
+                  <h4 className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest mb-2"}>
+                    SHAP Feature Importance
+                  </h4>
+                  <div className={"space-y-2"}>
+                    {recs.top_heat_drivers.slice(0, 5).map((d, i) => {
+                      const absVal = Math.abs(d.contribution_C);
+                      const maxVal = Math.max(...recs.top_heat_drivers.map(x => Math.abs(x.contribution_C)), 1);
+                      return (
+                        <div key={i} className={"flex items-center gap-3"}>
+                          <span className={"w-20 font-data-sm text-[10px] truncate"}>
+                            {d.feature.replace(/_/g, " ")}
+                          </span>
+                          <div className={"flex-1 h-3 bg-error/20 rounded overflow-hidden"}>
+                            <div className={"h-full bg-error"} style={{width: `${(absVal / maxVal) * 100}%`}}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className={"flex items-center gap-3"}>
-                  <span className={"w-20 font-data-sm text-[10px] truncate"}>
-                    Asphalt %
-                  </span>
-                  <div className={"flex-1 h-3 bg-error/20 rounded overflow-hidden"}>
-                    <div className={"h-full bg-error"} style={{"width": "65%"}}></div>
-                  </div>
-                </div>
-                <div className={"flex items-center gap-3"}>
-                  <span className={"w-20 font-data-sm text-[10px] truncate"}>
-                    Canyon Ratio
-                  </span>
-                  <div className={"flex-1 h-3 bg-error/20 rounded overflow-hidden"}>
-                    <div className={"h-full bg-error"} style={{"width": "40%"}}></div>
-                  </div>
-                </div>
+              </>
+            ) : (
+              <div className={"text-center text-on-surface-variant py-6"}>
+                {loading ? "Loading..." : "Select a zone to see insights"}
               </div>
-            </div>
+            )}
           </div>
           <div className={"p-6"}>
             <div className={"flex items-center gap-2 mb-4"}>

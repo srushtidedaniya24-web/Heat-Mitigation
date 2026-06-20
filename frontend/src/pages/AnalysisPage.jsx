@@ -1,12 +1,36 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
+import { fetchHeatmap, fetchRecommendations } from "../services/api";
 import "../styles/pages.css";
 
 export default function AnalysisPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "analysis");
+
+  const [zones, setZones] = useState([]);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [recs, setRecs] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchHeatmap()
+      .then(data => {
+        setZones(data.zones || []);
+        if (data.zones?.length) setSelectedZone(data.zones[0]);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (selectedZone) {
+      fetchRecommendations(selectedZone.zone_id)
+        .then(setRecs)
+        .catch(() => setRecs(null));
+    }
+  }, [selectedZone]);
 
   return (
     <div ref={rootRef} className="analysis-page font-body-md text-body-md overflow-hidden h-screen flex flex-col">
@@ -71,188 +95,40 @@ export default function AnalysisPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-primary"}>
-                        01
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Downtown
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            9.2
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-secondary-container w-[92%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        31,345
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-error/10 border border-error/40 text-error"}>
-                          CRITICAL
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-primary"}>
-                        02
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Industrial West
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            8.7
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-secondary-container w-[87%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        12,400
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-error/10 border border-error/40 text-error"}>
-                          CRITICAL
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-on-surface-variant"}>
-                        03
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        East Wharf
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            7.9
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-tertiary-container w-[79%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        28,150
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-tertiary-container/10 border border-tertiary-container/40 text-tertiary-container"}>
-                          HIGH
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-on-surface-variant"}>
-                        04
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Central Park South
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            6.4
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-tertiary-container w-[64%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        45,200
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-tertiary-container/10 border border-tertiary-container/40 text-tertiary-container"}>
-                          HIGH
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-on-surface-variant"}>
-                        05
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Tech District
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            5.1
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-primary-container w-[51%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        18,900
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container/10 border border-primary-container/40 text-on-primary-container"}>
-                          MEDIUM
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-on-surface-variant"}>
-                        06
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Suburban Ridge
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            4.2
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-primary-container w-[42%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        34,100
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container/10 border border-primary-container/40 text-on-primary-container"}>
-                          MEDIUM
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className={"group hover:bg-surface-variant/20 transition-colors"}>
-                      <td className={"py-4 font-data-lg text-data-lg text-on-surface-variant"}>
-                        07
-                      </td>
-                      <td className={"py-4 font-body-md text-body-md font-semibold"}>
-                        Green Valley
-                      </td>
-                      <td className={"py-4"}>
-                        <div className={"flex items-center gap-2"}>
-                          <span className={"font-data-sm text-data-sm w-8"}>
-                            2.8
-                          </span>
-                          <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
-                            <div className={"h-full bg-primary-container w-[28%]"}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={"py-4 font-data-sm text-data-sm"}>
-                        8,300
-                      </td>
-                      <td className={"py-4"}>
-                        <span className={"px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 border border-primary/40 text-primary"}>
-                          LOW
-                        </span>
-                      </td>
-                    </tr>
+                    {zones.map((z, i) => {
+                      const rankColor = i < 2 ? "text-primary" : "text-on-surface-variant";
+                      const riskColor = z.risk_level === "CRITICAL" ? "bg-error/10 border-error/40 text-error" :
+                                        z.risk_level === "HIGH" ? "bg-tertiary-container/10 border-tertiary-container/40 text-tertiary-container" :
+                                        "bg-primary/10 border-primary/40 text-primary";
+                      const barColor = z.risk_level === "CRITICAL" ? "bg-secondary-container" :
+                                       z.risk_level === "HIGH" ? "bg-tertiary-container" : "bg-primary";
+                      const barWidth = Math.min(100, z.heat_risk_index * 10);
+                      return (
+                        <tr key={z.zone_id}
+                          className={"group hover:bg-surface-variant/20 transition-colors cursor-pointer"}
+                          onClick={() => setSelectedZone(z)}
+                        >
+                          <td className={`py-4 font-data-lg text-data-lg ${rankColor}`}>
+                            {String(i + 1).padStart(2, "0")}
+                          </td>
+                          <td className={"py-4 font-body-md text-body-md font-semibold"}>{z.name}</td>
+                          <td className={"py-4"}>
+                            <div className={"flex items-center gap-2"}>
+                              <span className={"font-data-sm text-data-sm w-8"}>{z.heat_risk_index}</span>
+                              <div className={"h-1.5 w-24 bg-surface-container rounded-full overflow-hidden"}>
+                                <div className={`h-full ${barColor}`} style={{width: `${barWidth}%`}}></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className={"py-4 font-data-sm text-data-sm"}>{z.population?.toLocaleString()}</td>
+                          <td className={"py-4"}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${riskColor}`}>
+                              {z.risk_level}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -266,81 +142,42 @@ export default function AnalysisPage() {
                   What's driving urban heat?
                 </h3>
                 <p className={"font-body-sm text-body-sm text-on-surface-variant"}>
-                  SHAP Value Feature Attribution (City-wide Model)
+                  SHAP Value Feature Attribution ({selectedZone?.name || "City-wide"} Model)
                 </p>
               </div>
               <div className={"space-y-8 flex-1 flex flex-col justify-center"}>
-                <div className={"relative"}>
-                  <div className={"flex justify-between items-end mb-2"}>
-                    <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
-                      Road coverage density
-                    </span>
-                    <span className={"font-data-lg text-data-lg text-secondary-container"}>
-                      +8.4°C
-                    </span>
+                {recs?.shap_breakdown ? (
+                  (() => {
+                    const shapEntries = Object.entries(recs.shap_breakdown)
+                      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                      .slice(0, 5);
+                    const maxAbs = Math.max(...shapEntries.map(([, v]) => Math.abs(v)), 1);
+                    return shapEntries.map(([feat, val], i) => (
+                      <div key={feat} className={"relative"}>
+                        <div className={"flex justify-between items-end mb-2"}>
+                          <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
+                            {feat.replace(/_/g, " ")}
+                          </span>
+                          <span className={"font-data-lg text-data-lg text-secondary-container"}>
+                            {val >= 0 ? "+" : ""}{val.toFixed(1)}°C
+                          </span>
+                        </div>
+                        <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
+                          <div className={"h-full shap-bar-positive transition-all duration-1000 ease-out"} style={{width: `${(Math.abs(val) / maxAbs) * 100}%`}}></div>
+                        </div>
+                      </div>
+                    ));
+                  })()
+                ) : (
+                  <div className={"text-center text-on-surface-variant py-8"}>
+                    {loading ? "Loading SHAP data..." : "Select a zone to see feature attribution"}
                   </div>
-                  <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
-                    <div className={"h-full shap-bar-positive w-[84%] transition-all duration-1000 ease-out"}></div>
-                    <div className={"absolute inset-0 flex items-center px-4 mix-blend-overlay opacity-30"}>
-                      <div className={"w-full border-t border-dashed border-on-surface"}></div>
-                    </div>
-                  </div>
-                </div>
-                <div className={"relative"}>
-                  <div className={"flex justify-between items-end mb-2"}>
-                    <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
-                      Roof albedo (Low reflectivity)
-                    </span>
-                    <span className={"font-data-lg text-data-lg text-secondary-container"}>
-                      +7.1°C
-                    </span>
-                  </div>
-                  <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
-                    <div className={"h-full shap-bar-positive w-[71%] transition-all duration-1000 ease-out delay-100"}></div>
-                  </div>
-                </div>
-                <div className={"relative"}>
-                  <div className={"flex justify-between items-end mb-2"}>
-                    <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
-                      Vegetation absence
-                    </span>
-                    <span className={"font-data-lg text-data-lg text-secondary-container"}>
-                      +5.8°C
-                    </span>
-                  </div>
-                  <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
-                    <div className={"h-full shap-bar-positive w-[58%] transition-all duration-1000 ease-out delay-200"}></div>
-                  </div>
-                </div>
-                <div className={"relative"}>
-                  <div className={"flex justify-between items-end mb-2"}>
-                    <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
-                      HVAC Exhaust density
-                    </span>
-                    <span className={"font-data-lg text-data-lg text-secondary-container"}>
-                      +4.2°C
-                    </span>
-                  </div>
-                  <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
-                    <div className={"h-full shap-bar-positive w-[42%] transition-all duration-1000 ease-out delay-300"}></div>
-                  </div>
-                </div>
-                <div className={"relative"}>
-                  <div className={"flex justify-between items-end mb-2"}>
-                    <span className={"font-data-sm text-data-sm uppercase tracking-widest text-on-surface-variant"}>
-                      Building Height / Air Trapping
-                    </span>
-                    <span className={"font-data-lg text-data-lg text-secondary-container"}>
-                      +3.6°C
-                    </span>
-                  </div>
-                  <div className={"h-8 w-full bg-surface-container rounded relative overflow-hidden"}>
-                    <div className={"h-full shap-bar-positive w-[36%] transition-all duration-1000 ease-out delay-400"}></div>
-                  </div>
-                </div>
+                )}
               </div>
               <div className={"mt-8 p-4 bg-surface-container-high/30 rounded-lg border border-outline-variant/30 italic font-body-sm text-body-sm text-on-surface-variant/80"}>
-                *AI analysis indicates that increasing roof albedo in the Downtown sector could reduce peak temperature by up to 2.4°C.
+                {recs?.recommendations?.length > 0
+                  ? `AI recommends ${recs.recommendations[0].label} for ${selectedZone?.name} — could reduce peak temperature by up to ${Math.abs(recs.recommendations[0].reduction_C).toFixed(1)}°C.`
+                  : "*AI analysis indicates zone-specific interventions can reduce peak temperatures."}
               </div>
             </section>
           </div>
@@ -351,7 +188,7 @@ export default function AnalysisPage() {
                   <span className={"material-symbols-outlined text-primary"}>
                     timeline
                   </span>
-                  Surface temperature trend - Downtown
+                  Surface temperature trend - {selectedZone?.name || "Downtown"}
                 </h3>
                 <p className={"font-body-sm text-body-sm text-on-surface-variant"}>
                   Comparative monthly LST (Land Surface Temp) sensor readings
@@ -473,24 +310,30 @@ export default function AnalysisPage() {
             </button>
           </nav>
           <div className={"flex-1 p-6 overflow-y-auto space-y-6"}>
-            <div className={"space-y-4"}>
+              <div className={"space-y-4"}>
               <label className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>
                 Active Anomalies
               </label>
               <div className={"glass-panel p-4 rounded-lg space-y-3"}>
-                <div className={"flex items-start gap-3"}>
-                  <span className={"material-symbols-outlined text-secondary text-sm mt-1"}>
-                    warning
-                  </span>
-                  <div>
-                    <p className={"font-body-sm text-body-sm font-bold"}>
-                      Thermal Tunneling Effect
-                    </p>
-                    <p className={"text-[12px] text-on-surface-variant"}>
-                      Detected in Sector 7-G. Heat trapping exceeding normal limits by 14%.
-                    </p>
+                {recs?.top_heat_drivers?.slice(0, 2).map((d, i) => (
+                  <div key={i} className={"flex items-start gap-3"}>
+                    <span className={"material-symbols-outlined text-secondary text-sm mt-1"}>
+                      warning
+                    </span>
+                    <div>
+                      <p className={"font-body-sm text-body-sm font-bold"}>
+                        {d.feature.replace(/_/g, " ")}
+                      </p>
+                      <p className={"text-[12px] text-on-surface-variant"}>
+                        Contributing +{d.contribution_C}°C in {selectedZone?.name || "selected zone"}.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )) || (
+                  <div className={"text-center text-on-surface-variant py-4"}>
+                    {loading ? "Loading..." : "Select a zone to see anomalies"}
+                  </div>
+                )}
               </div>
             </div>
             <div className={"space-y-4"}>
@@ -498,32 +341,23 @@ export default function AnalysisPage() {
                 Recommended Actions
               </label>
               <div className={"space-y-2"}>
-                <button className={"w-full text-left p-4 rounded bg-surface-container hover:bg-surface-container-high transition-colors border border-outline-variant group"}>
-                  <div className={"flex justify-between items-center"}>
-                    <span className={"font-body-sm text-body-sm font-semibold"}>
-                      Deploy Mobile Misters
-                    </span>
-                    <span className={"material-symbols-outlined text-primary scale-0 group-hover:scale-100 transition-transform"}>
-                      arrow_forward
-                    </span>
+                {recs?.recommendations?.slice(0, 3).map(r => (
+                  <button key={r.intervention} className={"w-full text-left p-4 rounded bg-surface-container hover:bg-surface-container-high transition-colors border border-outline-variant group"}>
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"font-body-sm text-body-sm font-semibold"}>{r.label}</span>
+                      <span className={"material-symbols-outlined text-primary scale-0 group-hover:scale-100 transition-transform"}>
+                        arrow_forward
+                      </span>
+                    </div>
+                    <p className={"text-[12px] text-on-surface-variant mt-1"}>
+                      Target: {selectedZone?.name} — {r.reduction_C > 0 ? `-${Math.abs(r.reduction_C).toFixed(1)}°C` : "No reduction"} | ₹{(r.cost_INR / 1e6).toFixed(1)}M
+                    </p>
+                  </button>
+                )) || (
+                  <div className={"text-center text-on-surface-variant py-4"}>
+                    {loading ? "Loading..." : "Select a zone to see recommendations"}
                   </div>
-                  <p className={"text-[12px] text-on-surface-variant mt-1"}>
-                    Target: Downtown Central Square
-                  </p>
-                </button>
-                <button className={"w-full text-left p-4 rounded bg-surface-container hover:bg-surface-container-high transition-colors border border-outline-variant group"}>
-                  <div className={"flex justify-between items-center"}>
-                    <span className={"font-body-sm text-body-sm font-semibold"}>
-                      Issue Heat Advisory
-                    </span>
-                    <span className={"material-symbols-outlined text-primary scale-0 group-hover:scale-100 transition-transform"}>
-                      arrow_forward
-                    </span>
-                  </div>
-                  <p className={"text-[12px] text-on-surface-variant mt-1"}>
-                    Target: East Wharf Residential
-                  </p>
-                </button>
+                )}
               </div>
             </div>
             <div className={"pt-6"}>

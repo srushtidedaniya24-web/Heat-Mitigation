@@ -1,12 +1,72 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Tooltip, GeoJSON } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
+import { fetchHeatmap, fetchGridHeatmap } from "../services/api";
 import "../styles/pages.css";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 export default function HeatMapsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "heatmaps");
+
+  const [zones, setZones] = useState([]);
+  const [gridCells, setGridCells] = useState([]);
+  const [showGrid, setShowGrid] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetchHeatmap(),
+      fetchGridHeatmap(2)
+    ])
+      .then(([heatData, gridData]) => {
+        setZones(heatData.zones || []);
+        setGridCells(gridData.cells || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const cityAvg = zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 0;
+
+  function lstColor(temp) {
+    if (temp >= 54) return "#ef4444";
+    if (temp >= 50) return "#f97316";
+    if (temp >= 46) return "#eab308";
+    if (temp >= 42) return "#84cc16";
+    if (temp >= 38) return "#22d3ee";
+    return "#06b6d4";
+  }
+
+  const CELL = 0.001;
+
+  const gridGeoJson = {
+    type: "FeatureCollection",
+    features: showGrid ? gridCells.map(c => ({
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [c.lon - CELL, c.lat - CELL],
+          [c.lon + CELL, c.lat - CELL],
+          [c.lon + CELL, c.lat + CELL],
+          [c.lon - CELL, c.lat + CELL],
+          [c.lon - CELL, c.lat - CELL],
+        ]],
+      },
+      properties: { temp: c.LST_celsius },
+    })) : [],
+  };
 
   return (
     <div ref={rootRef} className="heatmaps-page bg-background text-on-surface font-body-md selection:bg-primary/30 overflow-hidden">
@@ -32,66 +92,55 @@ export default function HeatMapsPage() {
       </header>
       <Sidebar />
       <main className={"ml-64 pt-16 h-screen relative flex overflow-hidden"}>
-        <div className={"absolute inset-0 z-0 bg-[#000d26]"}>
-          <div className={"w-full h-full relative map-grid opacity-60"}>
-            <div className={"w-full h-full bg-cover bg-center mix-blend-screen opacity-80"} data-alt={"A detailed dark-themed satellite satellite map view of a sprawling modern city with glowing heat map overlays in shades of teal, orange, and red. The map features high-resolution textures of buildings, rivers, and parks, with a futuristic 100m technical grid overlay on top. The style is cinematic and scientific, evoking a high-stakes climate monitoring center during night time."} style={{"backgroundImage": "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCp3s75XOKa6X6dBiLYQSQ3fpSNOxYVVECYJME5fFkb-EoeBZLsqwGA4tPTJzomSOsRAJ06kWxHaevzkmP0_ksLxcsI3tt_YVtyc1gfEm3gLkaEs8SEzCe_zKg6Do--X0_lyZTOCpCiyagHu9toillk3KSE4wEqCfVSqI3fsa7BX78n9nFW7qc-mmEv3u9ALgbu6jrlzGfG_A2bnYD55OV30KDNPME6098es8RVlyYtcwWmV6dZQRiyL54fUPaon8xrOGkDr_28r3M')"}}></div>
-            <div className={"absolute top-[20%] left-[30%] animate-pulse"}>
-              <div className={"bg-surface-container-highest/80 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-secondary-container"}></span>
-                <span className={"font-data-sm text-on-surface font-semibold"}>
-                  Downtown
-                </span>
-              </div>
-            </div>
-            <div className={"absolute top-[10%] left-[60%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-primary-container"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Northview
-                </span>
-              </div>
-            </div>
-            <div className={"absolute top-[45%] left-[20%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-tertiary-container"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Riverside
-                </span>
-              </div>
-            </div>
-            <div className={"absolute top-[60%] left-[10%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-primary"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Westhill
-                </span>
-              </div>
-            </div>
-            <div className={"absolute top-[40%] right-[15%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-secondary"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Eastwood
-                </span>
-              </div>
-            </div>
-            <div className={"absolute bottom-[20%] right-[30%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-primary-fixed-dim"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Lakeside
-                </span>
-              </div>
-            </div>
-            <div className={"absolute bottom-[15%] left-[45%]"}>
-              <div className={"bg-surface-container-highest/60 backdrop-blur-md px-3 py-1 border border-outline-variant rounded flex items-center gap-2"}>
-                <span className={"w-2 h-2 rounded-full bg-on-tertiary-container"}></span>
-                <span className={"font-data-sm text-on-surface"}>
-                  Southpark
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className={"absolute inset-0 z-0"}>
+          <MapContainer
+            center={[19.015, 72.865]}
+            zoom={12}
+            className={"w-full h-full"}
+            zoomControl={true}
+            style={{ background: "#000d26" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {zones.map(z => {
+              const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
+                                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
+              const isHottest = zones.length && z.LST_celsius === Math.max(...zones.map(x => x.LST_celsius));
+              const icon = L.divIcon({
+                className: "custom-zone-marker",
+                html: `<div style="background:rgba(15,25,40,0.85);backdrop-filter:blur(4px);border:1px solid ${riskColor};padding:4px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.4)">
+                         <span style="width:8px;height:8px;border-radius:50%;background:${riskColor};display:inline-block${isHottest ? ";animation:pulse 2s infinite" : ""}"></span>
+                         <span style="font-size:11px;font-weight:700;color:#e8edf5">${z.name}</span>
+                       </div>`,
+                iconSize: [140, 28],
+                iconAnchor: [70, 14],
+              });
+              return (
+                <Marker key={z.zone_id} position={[z.lat, z.lon]} icon={icon}>
+                  <Tooltip direction="top" offset={[0, -16]} className={"custom-tooltip"}>
+                    <div>
+                      <strong>{z.name}</strong><br />
+                      <span style={{color: riskColor}}>{z.LST_celsius}°C</span> &middot; {z.risk_level}
+                    </div>
+                  </Tooltip>
+                </Marker>
+              );
+            })}
+            {showGrid && (
+              <GeoJSON
+                key={gridCells.length}
+                data={gridGeoJson}
+                style={feature => ({
+                  fillColor: lstColor(feature.properties.temp),
+                  fillOpacity: 0.8,
+                  weight: 0,
+                  color: "transparent",
+                })}
+              />
+            )}
+          </MapContainer>
           <div className={"absolute top-6 right-6 z-20 flex flex-col gap-4"}>
             <div className={"bg-surface-container-lowest/80 backdrop-blur-xl border border-outline-variant p-4 rounded-lg w-48"}>
               <h4 className={"font-headline-sm text-sm mb-3"}>
@@ -99,15 +148,9 @@ export default function HeatMapsPage() {
               </h4>
               <div className={"h-2 w-full thermal-gradient rounded-full mb-2"}></div>
               <div className={"flex justify-between text-[10px] font-data-sm text-on-surface-variant"}>
-                <span>
-                  24°C
-                </span>
-                <span>
-                  40°C
-                </span>
-                <span>
-                  60°C
-                </span>
+                <span>24°C</span>
+                <span>40°C</span>
+                <span>60°C</span>
               </div>
             </div>
           </div>
@@ -131,8 +174,11 @@ export default function HeatMapsPage() {
                   <span className={"font-body-sm text-on-surface"}>
                     Surface Temp (LST)
                   </span>
-                  <button className={"relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none bg-primary"} data-toggle-layer={"true"}>
-                    <span className={"translate-x-5 pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out"}></span>
+                  <button
+                    className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${showGrid ? "bg-primary" : "bg-surface-variant"}`}
+                    onClick={() => setShowGrid(v => !v)}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${showGrid ? "translate-x-5" : "translate-x-0"}`}></span>
                   </button>
                 </div>
                 <div className={"flex items-center justify-between"}>
@@ -234,32 +280,26 @@ export default function HeatMapsPage() {
               </button>
             </div>
             <div className={"space-y-4"}>
-              <div className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
-                <div className={"flex justify-between items-center mb-1"}>
-                  <span className={"font-headline-sm text-sm text-secondary"}>
-                    Downtown
-                  </span>
-                  <span className={"font-data-sm text-error"}>
-                    56.8°C
-                  </span>
-                </div>
-                <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
-                  High albedo surfaces identified in Central Plaza. Recommend immediate shade implementation.
-                </p>
-              </div>
-              <div className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
-                <div className={"flex justify-between items-center mb-1"}>
-                  <span className={"font-headline-sm text-sm"}>
-                    Lakeside
-                  </span>
-                  <span className={"font-data-sm text-primary"}>
-                    41.8°C
-                  </span>
-                </div>
-                <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
-                  Stable thermal profile. High evaporative cooling from North Lake buffer zone.
-                </p>
-              </div>
+              {zones.slice(0, 3).map(z => {
+                const colors = ["text-secondary", "text-on-surface", "text-primary"];
+                return (
+                  <div key={z.zone_id} className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
+                    <div className={"flex justify-between items-center mb-1"}>
+                      <span className={`font-headline-sm text-sm ${colors[0]}`}>
+                        {z.name}
+                      </span>
+                      <span className={`font-data-sm ${z.risk_level === "CRITICAL" ? "text-error" : "text-primary"}`}>
+                        {z.LST_celsius}°C
+                      </span>
+                    </div>
+                    <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
+                      {z.risk_level === "CRITICAL" ? "High albedo surfaces identified. Recommend immediate shade implementation." :
+                       z.risk_level === "HIGH" ? "Elevated thermal load. Consider green infrastructure." :
+                       "Stable thermal profile. Adequate vegetation cover."}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
             <div className={"bg-surface-container/30 p-4 border-dashed border border-outline-variant rounded text-center"}>
               <span className={"material-symbols-outlined text-secondary opacity-50 text-4xl mb-2"}>
@@ -281,25 +321,25 @@ export default function HeatMapsPage() {
                   City Average
                 </span>
                 <span className={"font-data-lg text-on-surface text-xl"}>
-                  48.4°C
+                  {cityAvg.toFixed(1)}°C
                 </span>
               </div>
               <div className={"h-8 w-px bg-outline-variant"}></div>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-error uppercase tracking-widest"}>
-                  Peak Zone: Downtown
+                  Peak Zone: {(zones.length ? zones.reduce((a, b) => a.LST_celsius > b.LST_celsius ? a : b) : {}).name || "--"}
                 </span>
                 <span className={"font-data-lg text-error text-xl"}>
-                  56.8°C
+                  {(zones.length ? zones.reduce((a, b) => a.LST_celsius > b.LST_celsius ? a : b) : {}).LST_celsius || "--"}°C
                 </span>
               </div>
               <div className={"h-8 w-px bg-outline-variant"}></div>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-primary uppercase tracking-widest"}>
-                  Coolest: Lakeside
+                  Coolest: {(zones.length ? zones.reduce((a, b) => a.LST_celsius < b.LST_celsius ? a : b) : {}).name || "--"}
                 </span>
                 <span className={"font-data-lg text-primary text-xl"}>
-                  41.8°C
+                  {(zones.length ? zones.reduce((a, b) => a.LST_celsius < b.LST_celsius ? a : b) : {}).LST_celsius || "--"}°C
                 </span>
               </div>
             </div>
