@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
-import { fetchHeatmap, fetchRecommendations } from "../services/api";
+import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../services/api";
 import "../styles/pages.css";
 
 export default function AnalysisPage() {
@@ -13,6 +13,10 @@ export default function AnalysisPage() {
   const [selectedZone, setSelectedZone] = useState(null);
   const [recs, setRecs] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("insights");
+  const [simResult, setSimResult] = useState(null);
+  const [simCoverage, setSimCoverage] = useState(50);
+  const [simIntervention, setSimIntervention] = useState("cool_roofs");
 
   useEffect(() => {
     fetchHeatmap()
@@ -294,86 +298,221 @@ export default function AnalysisPage() {
             <div className={"flex items-center gap-2"}>
               <span className={"w-2 h-2 rounded-full bg-secondary animate-pulse"}></span>
               <p className={"font-data-lg text-data-lg text-secondary"}>
-                Data Density: High
+                {selectedZone?.name || "No zone selected"}
               </p>
             </div>
           </div>
           <nav className={"flex border-b border-outline-variant"}>
-            <button className={"flex-1 py-4 text-on-surface-variant font-medium hover:text-secondary-fixed transition-colors"}>
-              Zone Details
-            </button>
-            <button className={"flex-1 py-4 text-secondary border-b-2 border-secondary font-bold"}>
-              AI Insights
-            </button>
-            <button className={"flex-1 py-4 text-on-surface-variant font-medium hover:text-secondary-fixed transition-colors"}>
-              Cooling Simulator
-            </button>
+            {["details", "insights", "simulator"].map(tab => {
+              const labels = { details: "Zone Details", insights: "AI Insights", simulator: "Cooling Simulator" };
+              const active = activeTab === tab;
+              return (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-4 text-sm transition-colors ${
+                    active ? "text-secondary border-b-2 border-secondary font-bold" : "text-on-surface-variant font-medium hover:text-secondary-fixed"
+                  }`}>
+                  {labels[tab]}
+                </button>
+              );
+            })}
           </nav>
-          <div className={"flex-1 p-6 overflow-y-auto space-y-6"}>
+          <div className={"flex-1 p-4 overflow-y-auto space-y-4"}>
+
+            {/* ── Tab: Zone Details ── */}
+            {activeTab === "details" && (
               <div className={"space-y-4"}>
-              <label className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>
-                Active Anomalies
-              </label>
-              <div className={"glass-panel p-4 rounded-lg space-y-3"}>
-                {recs?.top_heat_drivers?.slice(0, 2).map((d, i) => (
-                  <div key={i} className={"flex items-start gap-3"}>
-                    <span className={"material-symbols-outlined text-secondary text-sm mt-1"}>
-                      warning
-                    </span>
-                    <div>
-                      <p className={"font-body-sm text-body-sm font-bold"}>
-                        {d.feature.replace(/_/g, " ")}
-                      </p>
-                      <p className={"text-[12px] text-on-surface-variant"}>
-                        Contributing +{d.contribution_C}°C in {selectedZone?.name || "selected zone"}.
-                      </p>
+                {selectedZone ? (
+                  <>
+                    <div className={"glass-panel p-4 rounded-lg space-y-3"}>
+                      <div className={"flex justify-between items-center"}>
+                        <span className={"font-headline-sm text-sm"}>{selectedZone.name}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          selectedZone.risk_level === "CRITICAL" ? "bg-error/10 text-error" :
+                          selectedZone.risk_level === "HIGH" ? "bg-tertiary-container/10 text-tertiary-container" :
+                          "bg-primary/10 text-primary"}`}>
+                          {selectedZone.risk_level}
+                        </span>
+                      </div>
+                      <div className={"grid grid-cols-2 gap-2 text-xs"}>
+                        <div className={"bg-surface-container rounded p-2"}>
+                          <span className={"text-on-surface-variant"}>LST</span>
+                          <p className={"font-bold text-secondary"}>{selectedZone.LST_celsius}°C</p>
+                        </div>
+                        <div className={"bg-surface-container rounded p-2"}>
+                          <span className={"text-on-surface-variant"}>Population</span>
+                          <p className={"font-bold"}>{selectedZone.population?.toLocaleString()}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )) || (
-                  <div className={"text-center text-on-surface-variant py-4"}>
-                    {loading ? "Loading..." : "Select a zone to see anomalies"}
-                  </div>
+                    <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                      Feature Attribution (SHAP)
+                    </label>
+                    {recs?.shap_breakdown && (() => {
+                      const entries = Object.entries(recs.shap_breakdown)
+                        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6);
+                      const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v)), 1);
+                      return entries.map(([feat, val]) => (
+                        <div key={feat} className={"flex items-center gap-2"}>
+                          <span className={"text-[10px] text-on-surface-variant w-20 truncate"}>{feat.replace(/_/g, " ")}</span>
+                          <div className={"flex-1 h-2 bg-surface-container rounded overflow-hidden"}>
+                            <div className={"h-full rounded transition-all duration-700"}
+                              style={{ width: `${Math.abs(val) / maxAbs * 100}%`,
+                                       background: val >= 0 ? "linear-gradient(90deg, #ef4444, #f97316)" : "linear-gradient(90deg, #06b6d4, #22d3ee)" }}>
+                            </div>
+                          </div>
+                          <span className={"text-[10px] w-10 text-right font-bold"} style={{color: val >= 0 ? "#ef4444" : "#22d3ee"}}>
+                            {val >= 0 ? "+" : ""}{val.toFixed(1)}
+                          </span>
+                        </div>
+                      ));
+                    })()}
+                  </>
+                ) : (
+                  <div className={"text-center text-on-surface-variant py-8 text-sm"}>Select a zone to view details</div>
                 )}
               </div>
-            </div>
-            <div className={"space-y-4"}>
-              <label className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>
-                Recommended Actions
-              </label>
-              <div className={"space-y-2"}>
-                {recs?.recommendations?.slice(0, 3).map(r => (
-                  <button key={r.intervention} className={"w-full text-left p-4 rounded bg-surface-container hover:bg-surface-container-high transition-colors border border-outline-variant group"}>
+            )}
+
+            {/* ── Tab: AI Insights ── */}
+            {activeTab === "insights" && (
+              <>
+                <div className={"space-y-3"}>
+                  <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                    Active Anomalies
+                  </label>
+                  <div className={"glass-panel p-4 rounded-lg space-y-3"}>
+                    {recs?.top_heat_drivers?.slice(0, 3).map((d, i) => (
+                      <div key={i} className={"flex items-start gap-3"}>
+                        <span className={"material-symbols-outlined text-secondary text-sm mt-1"}>warning</span>
+                        <div>
+                          <p className={"font-body-sm text-body-sm font-bold"}>{d.feature.replace(/_/g, " ")}</p>
+                          <p className={"text-[11px] text-on-surface-variant"}>
+                            Contributing +{d.contribution_C}°C in {selectedZone?.name || "selected zone"}.
+                          </p>
+                        </div>
+                      </div>
+                    )) || (
+                      <div className={"text-center text-on-surface-variant py-4 text-sm"}>
+                        {loading ? "Loading..." : "Select a zone to see anomalies"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className={"space-y-3"}>
+                  <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                    Recommended Actions
+                  </label>
+                  <div className={"space-y-2"}>
+                    {recs?.recommendations?.slice(0, 4).map(r => (
+                      <button key={r.intervention}
+                        className={"w-full text-left p-3 rounded bg-surface-container hover:bg-surface-container-high transition-colors border border-outline-variant group"}
+                        onClick={() => { setActiveTab("simulator"); setSimIntervention(r.intervention); }}>
+                        <div className={"flex justify-between items-center"}>
+                          <span className={"font-body-sm text-body-sm font-semibold"}>{r.label}</span>
+                          <span className={"text-xs font-bold " + (r.reduction_C > 0 ? "text-secondary" : "text-on-surface-variant")}>
+                            {r.reduction_C > 0 ? `-${Math.abs(r.reduction_C).toFixed(1)}°C` : "—"}
+                          </span>
+                        </div>
+                        <p className={"text-[11px] text-on-surface-variant mt-0.5"}>
+                          ₹{(r.cost_INR / 1e6).toFixed(1)}M · {r.efficiency_score?.toFixed(1)} °C/₹M
+                        </p>
+                      </button>
+                    )) || (
+                      <div className={"text-center text-on-surface-variant py-4 text-sm"}>
+                        {loading ? "Loading..." : "Select a zone to see recommendations"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Tab: Cooling Simulator ── */}
+            {activeTab === "simulator" && (
+              <div className={"space-y-4"}>
+                <div className={"space-y-2"}>
+                  <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                    Intervention Type
+                  </label>
+                  <select value={simIntervention}
+                    onChange={e => { setSimIntervention(e.target.value); setSimResult(null); }}
+                    className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-sm"}>
+                    {recs?.recommendations?.map(r => (
+                      <option key={r.intervention} value={r.intervention}>{r.label}</option>
+                    )) || (
+                      <option value="cool_roofs">Cool Roofs</option>
+                    )}
+                  </select>
+                </div>
+                <div className={"space-y-2"}>
+                  <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                    Coverage: {simCoverage}%
+                  </label>
+                  <input type="range" min={10} max={100} step={5} value={simCoverage}
+                    onChange={e => { setSimCoverage(Number(e.target.value)); setSimResult(null); }}
+                    className={"w-full accent-secondary cursor-pointer"} />
+                  <div className={"flex justify-between text-[10px] text-on-surface-variant"}>
+                    <span>10%</span><span>100%</span>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!selectedZone) return;
+                    try {
+                      const res = await simulateIntervention(selectedZone.zone_id, simIntervention, simCoverage);
+                      setSimResult(res);
+                    } catch (e) {
+                      setSimResult({ error: e.message });
+                    }
+                  }}
+                  disabled={!selectedZone}
+                  className={"w-full py-3 rounded-lg font-bold bg-secondary text-on-secondary hover:bg-secondary-fixed transition-all active:scale-[0.97] disabled:opacity-40"}>
+                  Run Simulation
+                </button>
+                {simResult && !simResult.error && (
+                  <div className={"glass-panel p-4 rounded-lg space-y-2"}>
+                    <p className={"text-xs text-on-surface-variant uppercase tracking-widest"}>Results</p>
                     <div className={"flex justify-between items-center"}>
-                      <span className={"font-body-sm text-body-sm font-semibold"}>{r.label}</span>
-                      <span className={"material-symbols-outlined text-primary scale-0 group-hover:scale-100 transition-transform"}>
-                        arrow_forward
+                      <span className={"text-sm"}>Before</span>
+                      <span className={"font-bold text-lg"}>{simResult.temp_before_C}°C</span>
+                    </div>
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"text-sm"}>After</span>
+                      <span className={"font-bold text-lg text-secondary"}>{simResult.temp_after_C}°C</span>
+                    </div>
+                    <div className={"flex justify-between items-center pt-2 border-t border-outline-variant"}>
+                      <span className={"text-sm"}>Reduction</span>
+                      <span className={"font-bold text-lg " + (simResult.reduction_C > 0 ? "text-secondary" : "text-error")}>
+                        {simResult.reduction_C > 0 ? `-${simResult.reduction_C.toFixed(1)}` : `+${Math.abs(simResult.reduction_C).toFixed(1)}`}°C
                       </span>
                     </div>
-                    <p className={"text-[12px] text-on-surface-variant mt-1"}>
-                      Target: {selectedZone?.name} — {r.reduction_C > 0 ? `-${Math.abs(r.reduction_C).toFixed(1)}°C` : "No reduction"} | ₹{(r.cost_INR / 1e6).toFixed(1)}M
-                    </p>
-                  </button>
-                )) || (
-                  <div className={"text-center text-on-surface-variant py-4"}>
-                    {loading ? "Loading..." : "Select a zone to see recommendations"}
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"text-sm"}>Cost</span>
+                      <span className={"font-bold"}>₹{(simResult.total_cost_INR / 1e6).toFixed(1)}M</span>
+                    </div>
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"text-sm"}>Cost Efficiency</span>
+                      <span className={"font-bold"}>₹{simResult.cost_per_degC?.toLocaleString() || "—"}/°C</span>
+                    </div>
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"text-sm"}>Risk Change</span>
+                      <span className={"font-bold text-xs " + (simResult.risk_after === "COOL" ? "text-secondary" : "text-warning")}>
+                        {simResult.risk_before} → {simResult.risk_after}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {simResult?.error && (
+                  <div className={"text-error text-sm text-center py-4"}>{simResult.error}</div>
+                )}
+                {!simResult && selectedZone && (
+                  <div className={"text-center text-on-surface-variant text-sm py-4"}>
+                    Configure and run a simulation to see results
                   </div>
                 )}
               </div>
-            </div>
-            <div className={"pt-6"}>
-              <div className={"rounded-xl overflow-hidden relative h-40 border border-outline-variant"}>
-                <div className={"absolute inset-0 bg-cover bg-center"} data-alt={"A futuristic satellite map view of an urban landscape with glowing red and orange thermal heat map overlays over the buildings. The imagery is technical, with UI elements like coordinate grids and data points overlaying the city streets. Dark cinematic lighting highlights the intense heat zones in the city center."} style={{"backgroundImage": "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAOOPZ1xFs6LqSnO2U3PDGOqXHmmdaYSb0RibcIJnhvUYRgoEuP3ZS1o8JSshu31xOxT1b7mdZToXvVa4PXuzWDL9t4FEQd7fuzD73Yr8hNwCK-TMXgoCgkNc_VyVWvrt_kYXZ4bPeDQBX74a9-1OJKP2fYJWisAVvBoeE79H0E-diJTvU_Y1I1zpNX-cTYFd9DTFG1PoaHIWbhwKy_3Iy4o4vvbk49bjySh08fc6Y05Gnjdk33OkgTKKKWSQQERfaJyyuot2sF8Og')"}}></div>
-                <div className={"absolute inset-0 bg-gradient-to-t from-[#000d26] to-transparent"}></div>
-                <div className={"absolute bottom-3 left-3"}>
-                  <p className={"font-data-sm text-data-sm text-primary"}>
-                    Live Thermal Feed
-                  </p>
-                  <p className={"text-[10px] text-white/60"}>
-                    Cam-Idx: 492-Delta
-                  </p>
-                </div>
-              </div>
-            </div>
+            )}
+
           </div>
         </aside>
       </div>

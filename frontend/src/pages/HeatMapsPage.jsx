@@ -24,7 +24,8 @@ const LAYERS = [
   { id: "population", label: "Population Density" },
 ];
 
-const CELL = 0.001;
+// Grid cell size derived from API data when available
+const GRID_SIZE = 0.005;
 
 function getFieldValue(cell, layerId) {
   switch (layerId) {
@@ -172,23 +173,35 @@ export default function HeatMapsPage() {
 
   const gridGeoJson = useMemo(() => ({
     type: "FeatureCollection",
-    features: gridCells.map(c => ({
-      type: "Feature",
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [c.lon - CELL, c.lat - CELL],
-          [c.lon + CELL, c.lat - CELL],
-          [c.lon + CELL, c.lat + CELL],
-          [c.lon - CELL, c.lat + CELL],
-          [c.lon - CELL, c.lat - CELL],
-        ]],
-      },
-      properties: {
-        val: getFieldValue(c, activeLayer),
-        layer: activeLayer,
-      },
-    })),
+    features: gridCells.map(c => {
+      // Use bbox from API if available, else fallback to lon/lat + GRID_SIZE
+      let sw_lon, sw_lat, ne_lon, ne_lat;
+      if (c.bbox) {
+        [sw_lon, sw_lat, ne_lon, ne_lat] = c.bbox;
+      } else {
+        sw_lon = c.lon - GRID_SIZE / 2;
+        sw_lat = c.lat - GRID_SIZE / 2;
+        ne_lon = c.lon + GRID_SIZE / 2;
+        ne_lat = c.lat + GRID_SIZE / 2;
+      }
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [[
+            [sw_lon, sw_lat],
+            [ne_lon, sw_lat],
+            [ne_lon, ne_lat],
+            [sw_lon, ne_lat],
+            [sw_lon, sw_lat],
+          ]],
+        },
+        properties: {
+          val: getFieldValue(c, activeLayer),
+          layer: activeLayer,
+        },
+      };
+    }),
   }), [gridCells, activeLayer]);
 
   const toggleLayer = (id) => {
@@ -260,20 +273,13 @@ export default function HeatMapsPage() {
               data={gridGeoJson}
               style={feature => ({
                 fillColor: layerColor(feature.properties.val, feature.properties.layer),
-                fillOpacity: activeLayer === "lst" ? 0.8 : 0.7,
-                weight: 0,
-                color: "transparent",
+                fillOpacity: activeLayer === "lst" ? 0.9 : 0.85,
+                weight: 0.3,
+                color: "#1a1a2e",
+                opacity: 0.5,
               })}
             />
           </MapContainer>
-          <div className={"absolute top-6 right-6 z-20 flex flex-col gap-4"}>
-            <div className={"bg-surface-container-lowest/80 backdrop-blur-xl border border-outline-variant p-4 rounded-lg w-48"}>
-              <h4 className={"font-headline-sm text-sm mb-3"}>
-                {LAYERS.find(l => l.id === activeLayer)?.label || "Legend"}
-              </h4>
-              <LayerLegend layerId={activeLayer} />
-            </div>
-          </div>
         </div>
         <aside className={"w-80 h-full p-4 z-10 pointer-events-none"}>
           <div className={"bg-surface-container-lowest/90 backdrop-blur-2xl border border-outline-variant rounded-xl h-full flex flex-col pointer-events-auto overflow-hidden"}>
@@ -302,19 +308,29 @@ export default function HeatMapsPage() {
                   </div>
                 ))}
               </div>
+              <div className={"bg-surface-container rounded-lg p-3 border border-outline-variant"}>
+                <h4 className={"font-headline-sm text-xs text-on-surface-variant uppercase tracking-wider mb-2"}>
+                  {LAYERS.find(l => l.id === activeLayer)?.label || "Legend"}
+                </h4>
+                <LayerLegend layerId={activeLayer} />
+              </div>
               <hr className={"border-outline-variant"} />
               <div className={"space-y-3"}>
                 <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
                   Date Range
                 </label>
-                <div className={"flex gap-2 items-center"}>
+                <div className={"flex flex-col gap-2"}>
                   <input
                     type={"date"}
                     defaultValue={"2024-03-01"}
                     className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
                     onChange={() => {}}
                   />
-                  <span className={"text-on-surface-variant text-xs"}>to</span>
+                  <div className={"flex items-center gap-2"}>
+                    <hr className={"flex-1 border-outline-variant"} />
+                    <span className={"text-on-surface-variant text-xs font-medium"}>to</span>
+                    <hr className={"flex-1 border-outline-variant"} />
+                  </div>
                   <input
                     type={"date"}
                     defaultValue={"2024-05-31"}
