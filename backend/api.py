@@ -344,7 +344,7 @@ def get_hotspots(
 @app.get("/heatmap-grid")
 def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all 55k, 5=~2.2k)")):
     """
-    Returns downsampled grid cells colored by LST for the heat map.
+    Returns downsampled grid cells with all feature layers.
     """
     import os as _os
     csv_path = _os.path.join(_os.path.dirname(__file__), "data", "features_raw.csv")
@@ -352,14 +352,40 @@ def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all 55
         raise HTTPException(503, "Grid data not available. Run data pipeline first.")
 
     df = pd.read_csv(csv_path)
-    df = df.iloc[::step, :]  # downsample
+    df = df.iloc[::step, :]
 
     features = []
     for _, row in df.iterrows():
+        ndvi = float(row.get("NDVI", 0))
+        builtup = float(row.get("builtup", 0))
+        bldg_h = float(row.get("bldg_height_idx", 0))
+        # Derive land cover class from features
+        if builtup > 0.5 and bldg_h > 0.6:
+            lc = "builtup_dense"
+        elif builtup > 0.5:
+            lc = "builtup_sparse"
+        elif ndvi > 0.3:
+            lc = "vegetation"
+        elif ndvi > 0.15:
+            lc = "scrubland"
+        else:
+            lc = "bare"
         features.append({
-            "lat":          row["lat"],
-            "lon":          row["lon"],
-            "LST_celsius":  round(row["LST_celsius"], 1),
+            "lat":              row["lat"],
+            "lon":              row["lon"],
+            "LST_celsius":      round(row["LST_celsius"], 1),
+            "NDVI":             round(ndvi, 3),
+            "albedo":           round(float(row.get("albedo", 0)), 3),
+            "builtup":          round(builtup, 2),
+            "road_density":     round(float(row.get("road_density", 0)), 3),
+            "impervious_pct":   round(float(row.get("impervious_pct", 0)), 3),
+            "heat_load_idx":    round(float(row.get("heat_load_idx", 0)), 3),
+            "wind_obstruction": round(float(row.get("wind_obstruction", 0)), 3),
+            "bldg_height_idx":  round(bldg_h, 3),
+            "pop_density":      round(float(row.get("pop_density", 0)), 1),
+            "dist_to_water":    round(float(row.get("dist_to_water", 0)), 1),
+            "humidity":         round(float(row.get("humidity", 0)), 1),
+            "land_cover":       lc,
         })
 
     return {"count": len(features), "step": step, "cells": features}
