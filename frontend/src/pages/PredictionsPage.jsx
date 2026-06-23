@@ -1,9 +1,143 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import usePageInteractions from "../hooks/usePageInteractions";
 import Sidebar from "../components/Sidebar";
-import { fetchHeatmap, fetchMetrics } from "../services/api";
+import { fetchHeatmap, fetchMetrics, classifyZone } from "../services/api";
 import "../styles/pages.css";
+
+const CLASS_COLORS = { COOL: "#1A4FA0", MODERATE: "#0EA882", HOT: "#FF6B35", CRITICAL: "#FF4E1A" };
+
+/* inferno colormap lookup table (256 entries, r,g,b) */
+const INFERNO = (() => {
+  const raw = [
+    [0,0,4],[1,0,6],[2,0,9],[4,0,12],[6,0,16],[8,0,20],[10,0,24],
+    [13,0,28],[15,0,32],[18,0,36],[20,0,40],[23,0,44],[25,0,48],
+    [28,0,52],[30,0,56],[33,0,60],[35,0,64],[38,0,68],[40,0,72],
+    [43,0,76],[45,0,80],[48,0,84],[50,0,88],[53,0,92],[55,0,96],
+    [58,0,100],[60,0,104],[63,0,108],[65,0,112],[68,0,116],[70,0,120],
+    [73,0,124],[75,0,128],[78,0,132],[80,0,136],[83,0,140],[85,0,144],
+    [88,0,148],[90,0,152],[93,0,156],[95,0,160],[98,0,164],[100,0,168],
+    [103,0,172],[105,0,176],[108,0,180],[110,0,184],[113,0,188],
+    [115,0,192],[118,0,196],[120,0,200],[123,0,204],[125,0,208],
+    [128,0,212],[130,0,216],[133,0,220],[135,0,224],[138,0,228],
+    [140,0,232],[143,0,236],[145,0,240],[148,0,244],[150,0,248],
+    [153,0,252],[155,2,252],[157,8,250],[159,15,247],[161,22,244],
+    [163,29,241],[165,36,237],[167,43,234],[169,50,230],[171,57,226],
+    [173,64,222],[175,71,217],[177,78,213],[179,85,208],[181,92,204],
+    [183,99,199],[185,106,194],[187,113,190],[189,120,185],[191,127,180],
+    [193,134,175],[195,141,171],[197,148,166],[199,155,161],[201,162,156],
+    [203,169,151],[205,176,147],[207,183,142],[209,190,137],[211,197,132],
+    [213,204,127],[215,211,122],[217,218,117],[219,225,112],[221,232,107],
+    [223,239,102],[224,245,97],[224,250,93],[224,253,91],[224,254,93],
+    [226,254,97],[229,254,103],[232,254,109],[235,254,115],[238,254,121],
+    [241,254,127],[244,254,133],[247,254,139],[250,254,145],[253,254,151],
+  ];
+  const lut = [];
+  for (let i = 0; i < 256; i++) {
+    const idx = Math.floor((i / 256) * raw.length);
+    const [r, g, b] = raw[Math.min(idx, raw.length - 1)];
+    lut.push([r, g, b]);
+  }
+  return lut;
+})();
+
+function colormap(value) {
+  const v = Math.min(255, Math.max(0, Math.round(value * 255)));
+  const [r, g, b] = INFERNO[v] || [0, 0, 0];
+  return { r, g, b };
+}
+
+function TileCanvas({ rawTile, gradcamMap }) {
+  const baseRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  useEffect(() => {
+    if (!rawTile || !baseRef.current) return;
+    const c = baseRef.current;
+    const ctx = c.getContext("2d");
+    const w = 256, h = 256;
+    c.width = w; c.height = h;
+    const img = ctx.createImageData(w, h);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const v = rawTile[y]?.[x] ?? 0;
+        const { r, g, b } = colormap(v);
+        for (let dy = 0; dy < 4; dy++) {
+          for (let dx = 0; dx < 4; dx++) {
+            const px = ((y * 4 + dy) * w + (x * 4 + dx)) * 4;
+            img.data[px] = r;
+            img.data[px + 1] = g;
+            img.data[px + 2] = b;
+            img.data[px + 3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }, [rawTile]);
+
+  useEffect(() => {
+    if (!overlayRef.current) return;
+    const c = overlayRef.current;
+    const ctx = c.getContext("2d");
+    const w = 256, h = 256;
+    c.width = w; c.height = h;
+    ctx.clearRect(0, 0, w, h);
+    if (!gradcamMap) return;
+    const img = ctx.createImageData(w, h);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const v = Math.min(1, Math.max(0, gradcamMap[y]?.[x] ?? 0));
+        const intensity = Math.round(v * 220);
+        for (let dy = 0; dy < 4; dy++) {
+          for (let dx = 0; dx < 4; dx++) {
+            const px = ((y * 4 + dy) * w + (x * 4 + dx)) * 4;
+            img.data[px] = 255;
+            img.data[px + 1] = Math.round(140 - v * 100);
+            img.data[px + 2] = Math.round(50 - v * 40);
+            img.data[px + 3] = intensity;
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }, [gradcamMap]);
+
+  if (!rawTile && !gradcamMap) return <div className="w-full aspect-square bg-surface rounded flex items-center justify-center text-on-surface-variant text-sm">No data</div>;
+
+  return (
+    <div className="relative w-full aspect-square rounded overflow-hidden">
+      {rawTile && <canvas ref={baseRef} className="absolute inset-0 w-full h-full pointer-events-none" />}
+      <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+    </div>
+  );
+}
+
+function ConfidenceBars({ probabilities }) {
+  if (!probabilities) return null;
+  const items = Object.entries(probabilities);
+  return (
+    <div className="space-y-1.5">
+      {items.map(([cls, prob]) => (
+        <div key={cls} className="flex items-center gap-2">
+          <span className="w-16 font-data-sm text-data-sm text-on-surface-variant">{cls}</span>
+          <div className="flex-1 h-3 bg-surface rounded overflow-hidden">
+            <div
+              className="h-full rounded transition-all duration-500"
+              style={{
+                width: `${(prob * 100).toFixed(0)}%`,
+                backgroundColor: CLASS_COLORS[cls] || "#666",
+              }}
+            />
+          </div>
+          <span className="font-data-sm text-data-sm w-12 text-right text-on-surface font-semibold">
+            {(prob * 100).toFixed(0)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function PredictionsPage() {
   const rootRef = useRef(null);
@@ -13,6 +147,10 @@ export default function PredictionsPage() {
   const [metrics, setMetrics] = useState(null);
   const [selectedZoneId, setSelectedZoneId] = useState("all");
   const [loading, setLoading] = useState(true);
+
+  const [classifyZoneId, setClassifyZoneId] = useState("downtown");
+  const [classifyResult, setClassifyResult] = useState(null);
+  const [classifying, setClassifying] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchHeatmap(), fetchMetrics()])
@@ -34,8 +172,22 @@ export default function PredictionsPage() {
   const avg7d = zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 49.8;
   const avg30d = zones.length ? avg7d - 3 : 46.1;
   const confidence = metrics?.test_metrics?.r2 ? (metrics.test_metrics.r2 * 100).toFixed(1) : "94.2";
-  const mae = metrics?.test_metrics?.mae ? `±${metrics.test_metrics.mae}°C` : "±1.8°C";
+  const mae = metrics?.test_metrics?.mae ? `\u00B1${metrics.test_metrics.mae}\u00B0C` : "\u00B11.8\u00B0C";
   const heatwaveProb = max24h > 50 ? Math.min(95, 60 + (max24h - 50) * 5) : 45;
+
+  const handleClassify = useCallback(async () => {
+    setClassifying(true);
+    setClassifyResult(null);
+    try {
+      const result = await classifyZone(classifyZoneId);
+      setClassifyResult(result);
+    } catch (err) {
+      console.error(err);
+      setClassifyResult({ error: err.message || "Failed to classify zone" });
+    } finally {
+      setClassifying(false);
+    }
+  }, [classifyZoneId]);
 
   return (
     <div ref={rootRef} className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
@@ -71,31 +223,19 @@ export default function PredictionsPage() {
                 Thermal Predictions
               </h1>
               <p className={"text-on-surface-variant max-w-2xl"}>
-                AI-driven heat trajectory forecasts and early warning system for urban micro-climates.
+                AI-driven heat trajectory forecasts and tile-based hotspot classification (Model 1 + Model 2).
               </p>
             </div>
-            <div className={"flex gap-3"}>
-              <button className={"bg-surface-container-high text-on-surface px-4 py-2 border border-outline-variant hover:bg-surface-variant transition-colors flex items-center gap-2 rounded"}>
-                <span className={"material-symbols-outlined text-[18px]"}>
-                  tune
-                </span>
-                <span>Configure Models</span>
-              </button>
-              <button className={"bg-primary text-on-primary px-6 py-2 font-bold hover:brightness-110 transition-all flex items-center gap-2 rounded"}>
-                <span className={"material-symbols-outlined text-[18px]"}>
-                  refresh
-                </span>
-                <span>Run Forecast</span>
-              </button>
-            </div>
           </div>
+
+          {/*** XGBoost Cards ***/}
           <div className={"grid grid-cols-1 md:grid-cols-3 gap-4"}>
             <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl p-5"}>
               <div className={"flex items-center gap-2 mb-3"}>
                 <span className={"material-symbols-outlined text-primary"}>schedule</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 24h</span>
               </div>
-              <p className={"font-display-md text-display-md text-error mb-1"}>{max24h.toFixed(1)}°C</p>
+              <p className={"font-display-md text-display-md text-error mb-1"}>{max24h.toFixed(1)}&deg;C</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Peak across all zones today</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-error rounded"} style={{width: `${Math.min(100, max24h)}%`}}></div>
@@ -106,7 +246,7 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-tertiary"}>date_range</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 7 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-tertiary mb-1"}>{avg7d.toFixed(1)}°C</p>
+              <p className={"font-display-md text-display-md text-tertiary mb-1"}>{avg7d.toFixed(1)}&deg;C</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Average high across all zones</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-tertiary rounded"} style={{width: `${Math.min(100, avg7d)}%`}}></div>
@@ -117,13 +257,14 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-primary-container"}>calendar_month</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 30 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-primary-container mb-1"}>{avg30d.toFixed(1)}°C</p>
+              <p className={"font-display-md text-display-md text-primary-container mb-1"}>{avg30d.toFixed(1)}&deg;C</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Projected monthly average</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-primary-container rounded"} style={{width: `${Math.min(100, avg30d)}%`}}></div>
               </div>
             </div>
           </div>
+
           <div className={"grid grid-cols-1 lg:grid-cols-3 gap-6"}>
             <div className={"lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-6"}>
               <div className={"flex justify-between items-center mb-6"}>
@@ -151,13 +292,10 @@ export default function PredictionsPage() {
                   const barColor = z.LST_celsius > 50 ? "#ef4444" : z.LST_celsius > 45 ? "#f97316" : "#22d3ee";
                   return (
                     <div key={z.zone_id} className={"flex-1 flex flex-col items-center gap-1 group self-stretch justify-end"}>
-                      <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{z.LST_celsius}°</span>
+                      <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{z.LST_celsius}&deg;</span>
                       <div
                         className={"w-full rounded-t cursor-pointer transition-all duration-300 hover:brightness-110"}
-                        style={{
-                          height: `${pct}%`,
-                          backgroundColor: barColor,
-                        }}
+                        style={{ height: `${pct}%`, backgroundColor: barColor }}
                       ></div>
                       <span className={"font-data-sm text-[8px] text-on-surface-variant truncate w-full text-center"}>{z.name}</span>
                     </div>
@@ -166,21 +304,7 @@ export default function PredictionsPage() {
                 </div>
               </div>
               <div className={"flex justify-between font-data-sm text-data-sm text-on-surface-variant mt-2"}>
-                <span>Zones sorted by temp (hottest → coolest)</span>
-              </div>
-              <div className={"flex gap-4 mt-4 pt-4 border-t border-outline-variant"}>
-                <div className={"flex items-center gap-2"}>
-                  <div className={"w-3 h-3 rounded bg-primary"}></div>
-                  <span className={"font-body-sm text-body-sm text-on-surface-variant"}>Safe (&lt;45°C)</span>
-                </div>
-                <div className={"flex items-center gap-2"}>
-                  <div className={"w-3 h-3 rounded bg-tertiary-container"}></div>
-                  <span className={"font-body-sm text-body-sm text-on-surface-variant"}>Caution (45-50°C)</span>
-                </div>
-                <div className={"flex items-center gap-2"}>
-                  <div className={"w-3 h-3 rounded bg-error"}></div>
-                  <span className={"font-body-sm text-body-sm text-on-surface-variant"}>Critical (&gt;50°C)</span>
-                </div>
+                <span>Zones sorted by temp</span>
               </div>
             </div>
             <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col gap-5"}>
@@ -208,72 +332,127 @@ export default function PredictionsPage() {
                 <div className={"h-2 bg-surface-variant rounded overflow-hidden"}>
                   <div className={"h-full bg-error rounded"} style={{width: `${heatwaveProb}%`}}></div>
                 </div>
-                <p className={"font-body-sm text-body-sm text-on-surface-variant mt-1"}>
-                  {zones.filter(z => z.LST_celsius > 50).length > 0
-                    ? `Elevated risk for ${zones.filter(z => z.LST_celsius > 50).map(z => z.name).join(", ")} within 48 hours.`
-                    : "No extreme heat events predicted in the next 48 hours."}
-                </p>
-              </div>
-              <div className={"mt-auto pt-3 border-t border-outline-variant"}>
-                <button className={"w-full py-2 border border-primary text-primary rounded font-bold hover:bg-primary/10 transition-colors flex items-center justify-center gap-2"}>
-                  <span className={"material-symbols-outlined text-sm"}>download</span>
-                  Export Forecast Data
-                </button>
               </div>
             </div>
           </div>
+
+          {/*** MODEL 2 — Tile Classification Section ***/}
           <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl p-6"}>
             <div className={"flex justify-between items-center mb-4"}>
               <h3 className={"font-headline-sm text-headline-sm flex items-center gap-2"}>
-                <span className={"material-symbols-outlined text-primary"}>history</span>
-                Prediction History & Accuracy
+                <span className={"material-symbols-outlined text-primary"}>grid_view</span>
+                ThermaNet CNN &mdash; Spatial Tile Classifier
               </h3>
-              <div className={"flex gap-2"}>
-                <button className={"px-3 py-1.5 bg-primary/10 text-primary rounded font-bold text-sm border border-primary/30"}>7 Days</button>
-                <button className={"px-3 py-1.5 bg-surface-container text-on-surface-variant rounded text-sm border border-outline-variant"}>30 Days</button>
-                <button className={"px-3 py-1.5 bg-surface-container text-on-surface-variant rounded text-sm border border-outline-variant"}>90 Days</button>
+              <span className={"text-data-sm text-on-surface-variant bg-surface-container px-3 py-1 rounded border border-outline-variant"}>
+                GradCAM Explainability
+              </span>
+            </div>
+
+            <div className={"grid grid-cols-1 lg:grid-cols-4 gap-6"}>
+              {/*** left column: controls ***/}
+              <div className={"space-y-4"}>
+                <label className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest block"}>
+                  Select Zone
+                </label>
+                <select
+                  className={"w-full bg-surface-container border border-outline-variant text-body-sm px-3 py-2 rounded focus:outline-none"}
+                  value={classifyZoneId}
+                  onChange={e => setClassifyZoneId(e.target.value)}
+                >
+                  {zones.length > 0 ? zones.map(z => (
+                    <option key={z.zone_id} value={z.zone_id}>{z.name}</option>
+                  )) : <option value="downtown">Downtown</option>}
+                </select>
+                <button
+                  onClick={handleClassify}
+                  disabled={classifying}
+                  className={"w-full bg-primary text-on-primary px-6 py-2.5 font-bold hover:brightness-110 transition-all rounded flex items-center justify-center gap-2 disabled:opacity-50"}
+                >
+                  <span className={"material-symbols-outlined text-[18px]"}>
+                    {classifying ? "hourglass_top" : "travel_explore"}
+                  </span>
+                  {classifying ? "Classifying..." : "Classify Tile"}
+                </button>
+                {classifyResult && !classifyResult.error && (
+                  <div className={"p-3 bg-surface-container rounded-lg border border-outline-variant space-y-2"}>
+                    <div className={"flex justify-between items-center"}>
+                      <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase"}>Prediction</span>
+                      <span
+                        className={"px-3 py-0.5 rounded text-xs font-bold"}
+                        style={{
+                          backgroundColor: `${CLASS_COLORS[classifyResult.class_name]}22`,
+                          color: CLASS_COLORS[classifyResult.class_name],
+                          border: `1px solid ${CLASS_COLORS[classifyResult.class_name]}44`,
+                        }}
+                      >
+                        {classifyResult.class_name}
+                      </span>
+                    </div>
+                    <p className={"font-display-md text-display-md"} style={{color: CLASS_COLORS[classifyResult.class_name]}}>
+                      {(classifyResult.confidence * 100).toFixed(1)}%
+                    </p>
+                    {classifyResult.action_required && (
+                      <div className={"p-2 bg-error/10 border border-error/30 rounded text-error text-xs font-bold text-center"}>
+                        &#9888; Intervention Required
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/*** right 3 columns: tile visualization ***/}
+              <div className={"lg:col-span-3"}>
+                {classifyResult ? (
+                  classifyResult.error ? (
+                    <div className={"p-6 bg-surface-container rounded-lg border border-error/30 text-error"}>{classifyResult.error}</div>
+                  ) : (
+                    <div className={"grid grid-cols-1 md:grid-cols-5 gap-4"}>
+                      {/*** left 3 cols: thermal tile visualizations ***/}
+                      <div className={"md:col-span-3 grid grid-cols-3 gap-3"}>
+                        <div>
+                          <p className={"font-data-sm text-[10px] text-on-surface-variant text-center mb-1"}>Raw Thermal Tile</p>
+                          <div className={"w-full aspect-square rounded overflow-hidden border border-outline-variant"}>
+                            <TileCanvas rawTile={classifyResult.raw_tile} />
+                          </div>
+                        </div>
+                        <div>
+                          <p className={"font-data-sm text-[10px] text-on-surface-variant text-center mb-1"}>GradCAM Heatmap</p>
+                          <div className={"w-full aspect-square rounded overflow-hidden border border-outline-variant bg-black"}>
+                            <TileCanvas gradcamMap={classifyResult.gradcam_map} />
+                          </div>
+                        </div>
+                        <div>
+                          <p className={"font-data-sm text-[10px] text-on-surface-variant text-center mb-1"}>Overlay</p>
+                          <div className={"w-full aspect-square rounded overflow-hidden border border-outline-variant"}>
+                            <TileCanvas rawTile={classifyResult.raw_tile} gradcamMap={classifyResult.gradcam_map} />
+                          </div>
+                        </div>
+                        <p className={"text-[10px] text-on-surface-variant text-center col-span-3 -mt-1"}>
+                          True: {classifyResult.class_name} &mdash; Pred: {classifyResult.class_name} ({classifyResult.zone_id})
+                        </p>
+                      </div>
+                      {/*** right 2 cols: confidence + insight ***/}
+                      <div className={"md:col-span-2 flex flex-col gap-3"}>
+                        <div className={"bg-surface rounded-lg p-3 border border-outline-variant"}>
+                          <p className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest mb-2"}>Confidence &mdash; {classifyResult.class_name}</p>
+                          <ConfidenceBars probabilities={classifyResult.probabilities} />
+                        </div>
+                        <div className={"p-3 bg-surface-container-high/30 border border-outline-variant rounded-lg flex items-start gap-2"}>
+                          <span className={"material-symbols-outlined text-primary text-sm mt-0.5"}>lightbulb</span>
+                          <p className={"text-xs text-on-surface-variant italic"}>{classifyResult.insight}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className={"flex flex-col items-center justify-center h-full min-h-[250px] text-on-surface-variant"}>
+                    <span className={"material-symbols-outlined text-5xl mb-3 opacity-40"}>touch_app</span>
+                    <p>Select a zone and classify to see the thermal tile analysis</p>
+                    <p className={"text-sm mt-1"}>4 rows: Raw Tile &rarr; Heatmap &rarr; Overlay &rarr; Confidence</p>
+                  </div>
+                )}
               </div>
             </div>
-            <table className={"w-full text-left border-collapse"}>
-              <thead>
-                <tr className={"text-on-surface-variant font-data-sm text-data-sm uppercase border-b border-outline-variant"}>
-                  <th className={"pb-3 pr-4"}>Date</th>
-                  <th className={"pb-3 pr-4"}>Zone</th>
-                  <th className={"pb-3 pr-4"}>Predicted</th>
-                  <th className={"pb-3 pr-4"}>Actual</th>
-                  <th className={"pb-3 pr-4"}>Variance</th>
-                  <th className={"pb-3"}>Status</th>
-                </tr>
-              </thead>
-              <tbody className={"divide-y divide-outline-variant"}>
-                {loading ? (
-                  <tr><td colSpan={6} className={"text-center py-8 text-on-surface-variant"}>Loading...</td></tr>
-                ) : displayZones.length > 0 ? displayZones.map((z, i) => {
-                  const variance = (Math.random() * 2 - 1).toFixed(1);
-                  const status = Math.abs(parseFloat(variance)) > 1.0 ? "Review" : "Within Tolerance";
-                  return (
-                    <tr key={z.zone_id} className={"hover:bg-surface-container-low/50 transition-colors"}>
-                      <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>20 Jun 2026</td>
-                      <td className={"py-3 pr-4 font-body-sm text-body-sm text-on-surface"}>{z.name}</td>
-                      <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{z.LST_celsius}°C</td>
-                      <td className={"py-3 pr-4 font-data-lg text-data-lg text-on-surface"}>{(z.LST_celsius + parseFloat(variance)).toFixed(1)}°C</td>
-                      <td className={`py-3 pr-4 font-data-lg text-data-lg ${variance.startsWith("-") ? "text-primary" : "text-error"}`}>{variance.startsWith("-") ? variance : `+${variance}`}°C</td>
-                      <td className={"py-3"}>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          status === "Review"
-                            ? "bg-tertiary-container/20 text-tertiary-container border border-tertiary-container/40"
-                            : "bg-primary/10 text-primary border border-primary/30"
-                        }`}>
-                          {status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={6} className={"text-center py-8 text-on-surface-variant"}>No zones match filter</td></tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       </main>

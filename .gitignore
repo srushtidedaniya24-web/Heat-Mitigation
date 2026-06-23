@@ -42,6 +42,16 @@ $RECYCLE.BIN/
 
 # Logs
 *.log
+backend/*.log
+
+# Models / weights / data
+*.pth
+*.npy
+*.npz
+
+# Generated artifacts
+backend/api_stdout.log
+backend/api_stderr.log
 
 # Backups
 *.bak

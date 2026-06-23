@@ -10,3 +10,4 @@ pydantic>=2.0.0
 matplotlib>=3.9.0
 geopandas>=1.0.0
 earthengine-api>=1.0.0
+torch>=2.0.0
