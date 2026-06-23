@@ -33,6 +33,7 @@ import joblib
 import xgboost as xgb
 import shap
 import os
+import model2_inference as m2
 
 # ─────────────────────────────────────────────
 # MODEL GLOBALS
@@ -559,6 +560,60 @@ def get_model_metrics():
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(404, "Metrics not found. Run step2_train_model.py first.")
+
+
+# ─────────────────────────────────────────────
+# MODEL 2 — TILE CLASSIFICATION HELPERS
+# ─────────────────────────────────────────────
+
+def _synthetic_tile_from_features(features: dict) -> np.ndarray:
+    """Generate realistic thermal tile using pattern generators from step1."""
+    import model2_step1_generate_tiles as tg
+    ndvi = features.get("NDVI", 0.15)
+    heat = features.get("heat_load_idx", 0.5)
+    lst  = predict_lst(features)
+    if lst >= 54 or heat > 0.7:
+        tile = tg.make_critical_tile()
+    elif lst >= 46 or (heat > 0.5 and ndvi < 0.12):
+        tile = tg.make_hot_tile()
+    elif ndvi > 0.25 or lst < 38:
+        tile = tg.make_cool_tile()
+    else:
+        tile = tg.make_moderate_tile()
+    return m2.tile_from_lst_array(tile)
+
+
+# ─────────────────────────────────────────────
+# MODEL 2 — CLASSIFY ENDPOINTS
+# ─────────────────────────────────────────────
+
+class ClassifyRequest(BaseModel):
+    zone_id:    str = Field(..., json_schema_extra={"example": "downtown"})
+    tile_array: list = Field(..., description="3x64x64 float list (CxHxW) in [0,1]")
+
+
+@app.post("/classify")
+def classify_tile(req: ClassifyRequest):
+    arr = np.array(req.tile_array, dtype=np.float32)
+    if arr.shape != (3, 64, 64):
+        raise HTTPException(400, f"Expected (3,64,64), got {arr.shape}")
+    try:
+        result = m2.classify_and_explain(arr, zone_id=req.zone_id)
+        return result
+    except FileNotFoundError:
+        raise HTTPException(503, "ThermaNet model not found. Run model2_step2_train_cnn.py first.")
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/classify/zone/{zone_id}")
+def classify_zone(zone_id: str):
+    zone_id = zone_id.lower()
+    if zone_id not in ZONE_DATA:
+        raise HTTPException(404, f"Zone '{zone_id}' not found")
+    features = ZONE_DATA[zone_id]["features"]
+    tile = _synthetic_tile_from_features(features)
+    return m2.classify_and_explain(tile, zone_id=zone_id)
 
 
 # ─────────────────────────────────────────────

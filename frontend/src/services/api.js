@@ -28,3 +28,17 @@ export function simulateIntervention(zoneId, intervention, coveragePct) {
     body: JSON.stringify({ zone_id: zoneId, intervention, coverage_pct: coveragePct }),
   }).then(r => r.json());
 }
+
+export async function classifyTile(zoneId, tileArray) {
+  const res = await fetch(`${BASE}/classify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ zone_id: zoneId, tile_array: tileArray }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export function classifyZone(zoneId) {
+  return get(`/classify/zone/${zoneId}`);
+}
