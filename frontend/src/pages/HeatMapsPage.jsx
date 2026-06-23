@@ -307,11 +307,20 @@ export default function HeatMapsPage() {
                 <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
                   Date Range
                 </label>
-                <div className={"relative"}>
-                  <input className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0"} readOnly type={"text"} defaultValue={"Aug 12, 2023 - Aug 19, 2023"} />
-                  <span className={"material-symbols-outlined absolute right-3 top-2 text-on-surface-variant"}>
-                    calendar_month
-                  </span>
+                <div className={"flex gap-2 items-center"}>
+                  <input
+                    type={"date"}
+                    defaultValue={"2024-03-01"}
+                    className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
+                    onChange={() => {}}
+                  />
+                  <span className={"text-on-surface-variant text-xs"}>to</span>
+                  <input
+                    type={"date"}
+                    defaultValue={"2024-05-31"}
+                    className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
+                    onChange={() => {}}
+                  />
                 </div>
               </div>
               <div className={"space-y-3"}>
