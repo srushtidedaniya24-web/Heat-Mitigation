@@ -23,6 +23,7 @@ dist/
 
 # Generated data / models / outputs
 backend/data/
+backend/cache/
 backend/models/
 backend/outputs/
 

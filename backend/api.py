@@ -341,28 +341,66 @@ def get_hotspots(
     }
 
 
+GRID_SIZE = 0.005
+
+def _cell_bbox(lon, lat):
+    """Return [sw_lon, sw_lat, ne_lon, ne_lat] for a grid cell."""
+    return [lon, lat, lon + GRID_SIZE, lat + GRID_SIZE]
+
+def _classify_landcover(ndvi, builtup, bldg_h):
+    if builtup > 0.5 and bldg_h > 0.6:
+        return "builtup_dense"
+    elif builtup > 0.5:
+        return "builtup_sparse"
+    elif ndvi > 0.3:
+        return "vegetation"
+    elif ndvi > 0.15:
+        return "scrubland"
+    else:
+        return "bare"
+
 @app.get("/heatmap-grid")
-def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all 55k, 5=~2.2k)")):
+def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all cells, 5=~440)")):
     """
-    Returns downsampled grid cells colored by LST for the heat map.
+    Returns grid cells as contiguous polygons with all feature layers.
+    Each cell includes a bounding box for seamless map overlay.
     """
-    import os as _os
-    csv_path = _os.path.join(_os.path.dirname(__file__), "data", "features_raw.csv")
-    if not _os.path.exists(csv_path):
+    csv_path = os.path.join(os.path.dirname(__file__), "data", "features_raw.csv")
+    if not os.path.exists(csv_path):
         raise HTTPException(503, "Grid data not available. Run data pipeline first.")
 
     df = pd.read_csv(csv_path)
-    df = df.iloc[::step, :]  # downsample
+    df = df.iloc[::step, :]
 
     features = []
     for _, row in df.iterrows():
+        lon = float(row["lon"])
+        lat = float(row["lat"])
+        ndvi = float(row.get("NDVI", 0))
+        builtup = float(row.get("builtup", 0))
+        bldg_h = float(row.get("bldg_height_idx", 0))
+        lc = _classify_landcover(ndvi, builtup, bldg_h)
+
         features.append({
-            "lat":          row["lat"],
-            "lon":          row["lon"],
-            "LST_celsius":  round(row["LST_celsius"], 1),
+            "bbox":             _cell_bbox(lon, lat),
+            "lat":              lat,
+            "lon":              lon,
+            "LST_celsius":      round(float(row["LST_celsius"]), 1),
+            "NDVI":             round(ndvi, 3),
+            "albedo":           round(float(row.get("albedo", 0)), 3),
+            "builtup":          round(builtup, 2),
+            "road_density":     round(float(row.get("road_density", 0)), 3),
+            "impervious_pct":   round(float(row.get("impervious_pct", 0)), 3),
+            "heat_load_idx":    round(float(row.get("heat_load_idx", 0)), 3),
+            "wind_obstruction": round(float(row.get("wind_obstruction", 0)), 3),
+            "bldg_height_idx":  round(bldg_h, 3),
+            "pop_density":      round(float(row.get("pop_density", 0)), 1),
+            "dist_to_water":    round(float(row.get("dist_to_water", 0)), 1),
+            "humidity":         round(float(row.get("humidity", 0)), 1),
+            "land_cover":       lc,
         })
 
-    return {"count": len(features), "step": step, "cells": features}
+    return {"count": len(features), "step": step, "grid_size": GRID_SIZE, "cells": features}
 
 
 @app.get("/interventions")
@@ -440,57 +478,63 @@ def simulate_intervention(req: SimulateRequest):
     Predict temperature change after applying a cooling intervention.
     This is the CORE endpoint — powers the dashboard simulator.
     """
-    if MODEL is None:
-        raise HTTPException(503, "Model not loaded")
+    try:
+        if MODEL is None:
+            raise HTTPException(503, "Model not loaded")
 
-    zone_id = req.zone_id.lower()
-    if zone_id not in ZONE_DATA:
-        raise HTTPException(404, f"Zone '{zone_id}' not found")
+        zone_id = req.zone_id.lower()
+        if zone_id not in ZONE_DATA:
+            raise HTTPException(404, f"Zone '{zone_id}' not found")
 
-    if req.intervention not in INTERVENTION_EFFECTS:
-        raise HTTPException(400, f"Unknown intervention '{req.intervention}'. "
-                                 f"Valid: {list(INTERVENTION_EFFECTS.keys())}")
+        if req.intervention not in INTERVENTION_EFFECTS:
+            raise HTTPException(400, f"Unknown intervention '{req.intervention}'. "
+                                     f"Valid: {list(INTERVENTION_EFFECTS.keys())}")
 
-    zone     = ZONE_DATA[zone_id]
-    base_f   = zone["features"].copy()
-    coverage = req.coverage_pct / 100.0
+        zone     = ZONE_DATA[zone_id]
+        base_f   = zone["features"].copy()
+        coverage = req.coverage_pct / 100.0
 
-    temp_before = predict_lst(base_f)
+        temp_before = predict_lst(base_f)
 
-    # Apply intervention effects scaled by coverage
-    modified = base_f.copy()
-    for feat, delta in INTERVENTION_EFFECTS[req.intervention].items():
-        if feat in modified:
-            modified[feat] = float(np.clip(modified[feat] + delta * coverage, -1.0, 40000.0))
+        # Apply intervention effects scaled by coverage
+        modified = base_f.copy()
+        for feat, delta in INTERVENTION_EFFECTS[req.intervention].items():
+            if feat in modified:
+                modified[feat] = float(np.clip(modified[feat] + delta * coverage, -1.0, 40000.0))
 
-    temp_after = predict_lst(modified)
-    reduction  = temp_before - temp_after
+        temp_after = predict_lst(modified)
+        reduction  = temp_before - temp_after
 
-    area_m2    = zone["area_sqkm"] * 1e6 * coverage
-    cost_total = area_m2 * COST_PER_SQM[req.intervention]
-    cost_per_c = cost_total / reduction if reduction > 0 else float("inf")
+        area_m2    = zone["area_sqkm"] * 1e6 * coverage
+        cost_total = area_m2 * COST_PER_SQM[req.intervention]
+        cost_per_c = cost_total / abs(reduction) if abs(reduction) > 0.01 else None
 
-    # SHAP breakdown before vs after
-    shap_before = get_shap_breakdown(base_f)
-    shap_after  = get_shap_breakdown(modified)
+        # SHAP breakdown before vs after
+        shap_before = get_shap_breakdown(base_f)
+        shap_after  = get_shap_breakdown(modified)
 
-    return {
-        "zone_id":          zone_id,
-        "zone_name":        zone["name"],
-        "intervention":     req.intervention,
-        "coverage_pct":     req.coverage_pct,
-        "temp_before_C":    round(temp_before, 2),
-        "temp_after_C":     round(temp_after,  2),
-        "reduction_C":      round(reduction,   2),
-        "risk_before":      get_risk_level(temp_before),
-        "risk_after":       get_risk_level(temp_after),
-        "area_treated_m2":  round(area_m2, 0),
-        "total_cost_INR":   round(cost_total, 0),
-        "cost_per_degC_INR":round(cost_per_c, 0),
-        "confidence_pct":   94.2,
-        "shap_before":      shap_before,
-        "shap_after":       shap_after,
-    }
+        return {
+            "zone_id":          zone_id,
+            "zone_name":        zone["name"],
+            "intervention":     req.intervention,
+            "coverage_pct":     req.coverage_pct,
+            "temp_before_C":    round(temp_before, 2),
+            "temp_after_C":     round(temp_after,  2),
+            "reduction_C":      round(reduction,   2),
+            "risk_before":      get_risk_level(temp_before),
+            "risk_after":       get_risk_level(temp_after),
+            "area_treated_m2":  round(area_m2, 0),
+            "total_cost_INR":   round(cost_total, 0),
+            "cost_per_degC_INR":round(cost_per_c, 0) if cost_per_c is not None else None,
+            "confidence_pct":   94.2,
+            "shap_before":      shap_before,
+            "shap_after":       shap_after,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] /simulate: {e}")
+        raise HTTPException(500, str(e))
 
 
 @app.get("/recommend/{zone_id}")

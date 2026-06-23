@@ -43,9 +43,9 @@ os.makedirs("models",  exist_ok=True)
 os.makedirs("outputs", exist_ok=True)
 os.makedirs("data",    exist_ok=True)
 
-# ─────────────────────────────────────────────
+# 
 # FEATURE DEFINITIONS
-# ─────────────────────────────────────────────
+# 
 FEATURE_COLS = [
     "NDVI",            # vegetation index (−1 to 1; higher = more green = cooler)
     "albedo",          # surface reflectance (0–1; higher = reflects more = cooler)
@@ -72,23 +72,23 @@ NEIGHBORHOODS = {
 }
 
 
-# ─────────────────────────────────────────────
+# 
 # SYNTHETIC DATA GENERATOR
-# ─────────────────────────────────────────────
+# 
 def generate_synthetic_data(n_samples=3000, seed=42):
     """
     Generate physically-realistic synthetic training data.
 
     The LST target is computed from a physics-inspired formula:
       LST ≈ 35 (base)
-            + heat from low albedo   (darker surface → hotter)
-            + heat from low NDVI     (no vegetation → hotter)
-            + heat from roads        (asphalt → hotter)
-            + heat from impervious   (concrete → hotter)
+            + heat from low albedo   (darker surface -> hotter)
+            + heat from low NDVI     (no vegetation -> hotter)
+            + heat from roads        (asphalt -> hotter)
+            + heat from impervious   (concrete -> hotter)
             + heat from buildings    (urban canyon effect)
-            - cooling from wind      (breeze → cooler)
+            - cooling from wind      (breeze -> cooler)
             - cooling from humidity  (mild effect)
-            - cooling from water     (proximity to water → cooler)
+            - cooling from water     (proximity to water -> cooler)
             + random noise
 
     This mirrors real urban heat island physics.
@@ -114,13 +114,13 @@ def generate_synthetic_data(n_samples=3000, seed=42):
             d_water = np.random.exponential(scale=1800)
             humid   = np.clip(np.random.normal(68, 10), 30, 95)
 
-            # ── Physics-inspired LST formula ──────────────────────────────
+            #  Physics-inspired LST formula 
             lst = (
                 35.0                            # base temperature
-                + (0.10 - albedo)  * 80         # low albedo → hotter (main driver)
-                + (0.30 - ndvi)    * 40         # low vegetation → hotter
-                + road             * 15         # road density → hotter
-                + imperv           * 12         # impervious → hotter
+                + (0.10 - albedo)  * 80         # low albedo -> hotter (main driver)
+                + (0.30 - ndvi)    * 40         # low vegetation -> hotter
+                + road             * 15         # road density -> hotter
+                + imperv           * 12         # impervious -> hotter
                 + bldg_h           * 6          # urban canyon effect
                 - wind_ob          * 4          # wind reduces temp
                 - (humid - 50)     * 0.05       # humidity slight cooling
@@ -148,24 +148,24 @@ def generate_synthetic_data(n_samples=3000, seed=42):
 
     df = pd.DataFrame(rows).sample(frac=1, random_state=42).reset_index(drop=True)
     df.to_csv("data/features_processed.csv", index=False)
-    print(f"✓ Generated {len(df)} synthetic samples across {len(NEIGHBORHOODS)} zones")
-    print(f"  LST range: {df['LST_celsius'].min():.1f}°C – {df['LST_celsius'].max():.1f}°C")
+    print(f" Generated {len(df)} synthetic samples across {len(NEIGHBORHOODS)} zones")
+    print(f"  LST range: {df['LST_celsius'].min():.1f}C – {df['LST_celsius'].max():.1f}C")
     print(f"  Zone means:")
     for z, grp in df.groupby("neighborhood"):
-        print(f"    {z:<12} {grp['LST_celsius'].mean():.1f}°C")
+        print(f"    {z:<12} {grp['LST_celsius'].mean():.1f}C")
     return df
 
 
-# ─────────────────────────────────────────────
+# 
 # DATA LOADING
-# ─────────────────────────────────────────────
+# 
 def load_data():
     """Load real or synthetic data."""
     real_path = "data/features_raw.csv"
     proc_path = "data/features_processed.csv"
 
     if os.path.exists(real_path):
-        print(f"→ Loading real GEE data from {real_path}")
+        print(f"-> Loading real GEE data from {real_path}")
         df = pd.read_csv(real_path)
         # Add any missing derived columns
         if "heat_load_idx" not in df.columns:
@@ -173,21 +173,21 @@ def load_data():
                                    df["impervious_pct"] * 0.4 +
                                    df.get("wind_obstruction", 0.5) * 0.2)
     elif os.path.exists(proc_path):
-        print(f"→ Loading processed data from {proc_path}")
+        print(f"-> Loading processed data from {proc_path}")
         df = pd.read_csv(proc_path)
     else:
-        print("→ No data found — generating synthetic dataset")
+        print("-> No data found — generating synthetic dataset")
         df = generate_synthetic_data()
 
     # Drop rows with missing target
     df = df.dropna(subset=[TARGET_COL] + FEATURE_COLS)
-    print(f"✓ Dataset ready: {len(df)} samples, {len(FEATURE_COLS)} features")
+    print(f" Dataset ready: {len(df)} samples, {len(FEATURE_COLS)} features")
     return df
 
 
-# ─────────────────────────────────────────────
+# 
 # PREPROCESSING
-# ─────────────────────────────────────────────
+# 
 def preprocess(df):
     """Scale features for XGBoost (not strictly needed but good practice)."""
     X = df[FEATURE_COLS].values
@@ -201,22 +201,22 @@ def preprocess(df):
     X_train_sc = scaler.fit_transform(X_train)
     X_test_sc  = scaler.transform(X_test)
 
-    print(f"✓ Train: {len(X_train)} | Test: {len(X_test)}")
+    print(f" Train: {len(X_train)} | Test: {len(X_test)}")
     return X_train_sc, X_test_sc, y_train, y_test, scaler
 
 
-# ─────────────────────────────────────────────
+# 
 # XGBOOST MODEL TRAINING
-# ─────────────────────────────────────────────
+# 
 def train_xgboost(X_train, y_train):
     """
     Train XGBoost regressor with tuned hyperparameters.
 
     Why XGBoost for this problem:
-    ─ Handles mixed feature types (continuous + binary builtup flag)
-    ─ Robust to outliers (robust loss function)
-    ─ Native feature importance compatible with SHAP
-    ─ Fast training, interpretable, production-ready
+     Handles mixed feature types (continuous + binary builtup flag)
+     Robust to outliers (robust loss function)
+     Native feature importance compatible with SHAP
+     Fast training, interpretable, production-ready
     """
     params = {
         "n_estimators":     500,
@@ -243,13 +243,13 @@ def train_xgboost(X_train, y_train):
     )
 
     best_iter = model.best_iteration
-    print(f"✓ XGBoost trained | Best iteration: {best_iter}")
+    print(f" XGBoost trained | Best iteration: {best_iter}")
     return model
 
 
-# ─────────────────────────────────────────────
+# 
 # EVALUATION
-# ─────────────────────────────────────────────
+# 
 def evaluate_model(model, X_train, X_test, y_train, y_test):
     """Compute regression metrics + cross-validation score."""
     y_pred_train = model.predict(X_train)
@@ -268,104 +268,117 @@ def evaluate_model(model, X_train, X_test, y_train, y_test):
         }
     }
 
-    print("\n📊 Model Performance:")
+    print("\n Model Performance:")
     print(f"  {'Metric':<8} {'Train':>10} {'Test':>10}")
-    print(f"  {'─'*28}")
+    print(f"  {''*28}")
     print(f"  {'R²':<8} {metrics['train']['r2']:>10.4f} {metrics['test']['r2']:>10.4f}")
-    print(f"  {'RMSE':<8} {metrics['train']['rmse']:>9.3f}°C {metrics['test']['rmse']:>9.3f}°C")
-    print(f"  {'MAE':<8} {metrics['train']['mae']:>9.3f}°C {metrics['test']['mae']:>9.3f}°C")
+    print(f"  {'RMSE':<8} {metrics['train']['rmse']:>9.3f}C {metrics['test']['rmse']:>9.3f}C")
+    print(f"  {'MAE':<8} {metrics['train']['mae']:>9.3f}C {metrics['test']['mae']:>9.3f}C")
 
     return metrics, y_pred_test
 
 
-# ─────────────────────────────────────────────
+# 
 # SHAP ANALYSIS — the differentiator
-# ─────────────────────────────────────────────
+# 
 def run_shap_analysis(model, X_train, X_test, feature_names):
     """
     SHAP (SHapley Additive exPlanations) analysis.
 
     What SHAP tells you:
-    ─ For the CITY-LEVEL: which features drive heat most?
-      → "Road density contributes +8.4°C on average"
-    ─ For a SPECIFIC ZONE: what's making THIS cell hot?
-      → "Low albedo roofs: +11°C, No vegetation: +7°C"
+     For the CITY-LEVEL: which features drive heat most?
+      -> "Road density contributes +8.4C on average"
+     For a SPECIFIC ZONE: what's making THIS cell hot?
+      -> "Low albedo roofs: +11C, No vegetation: +7C"
 
     This is what goes into the RIGHT PANEL "AI Insights" section
     of your dashboard.
     """
-    print("\n🔍 Computing SHAP values...")
+    print("\n Computing SHAP values...")
     explainer   = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_test)
 
-    # ── 1. Summary bar chart (global feature importance) ─────────
-    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+    #  1. Summary bar chart (global feature importance)
+    fig, axes = plt.subplots(1, 2, figsize=(18, 7))
     fig.patch.set_facecolor("#0A0E1A")
 
-    # Mean absolute SHAP values per feature
     mean_shap = np.abs(shap_values).mean(axis=0)
     sorted_idx = np.argsort(mean_shap)[::-1]
 
-    colors = ["#FF4E1A" if mean_shap[i] > mean_shap[sorted_idx[2]]
-              else "#F59E0B" if mean_shap[i] > mean_shap[sorted_idx[5]]
-              else "#00D4B4"
-              for i in sorted_idx]
+    bar_colors = ["#FF4E1A" if mean_shap[i] > mean_shap[sorted_idx[2]]
+                  else "#F59E0B" if mean_shap[i] > mean_shap[sorted_idx[5]]
+                  else "#00D4B4"
+                  for i in sorted_idx]
 
     ax1 = axes[0]
     ax1.set_facecolor("#111827")
-    bars = ax1.barh(
-        [feature_names[i] for i in sorted_idx],
-        [mean_shap[i] for i in sorted_idx],
-        color=colors,
-        edgecolor="none",
-        height=0.65
-    )
-    ax1.set_xlabel("Mean |SHAP value| (°C contribution)", color="#8B9DC3", fontsize=10)
+
+    feature_labels = [
+        f.replace("_", " ").title() for i in feature_names
+    ]
+    sorted_labels = [feature_labels[i] for i in sorted_idx]
+    sorted_vals   = [mean_shap[i] for i in sorted_idx]
+
+    bars = ax1.barh(sorted_labels, sorted_vals, color=bar_colors,
+                    edgecolor="none", height=0.6, zorder=3)
+
+    ax1.set_xlabel("Mean |SHAP value| (C contribution)", color="#8B9DC3", fontsize=11)
     ax1.set_title("Global Feature Importance\n(What drives urban heat?)",
-                  color="#F0F4FF", fontsize=12, fontweight="bold", pad=12)
-    ax1.tick_params(colors="#8B9DC3", labelsize=9)
+                  color="#F0F4FF", fontsize=13, fontweight="bold", pad=14)
+    ax1.tick_params(colors="#F0F4FF", labelsize=10)
     ax1.spines["top"].set_visible(False)
     ax1.spines["right"].set_visible(False)
     for spine in ["bottom", "left"]:
         ax1.spines[spine].set_color("#1E2D45")
-    ax1.set_xlim(0, mean_shap.max() * 1.15)
+    ax1.set_xlim(0, max(sorted_vals) * 1.2)
 
-    # Value labels on bars
-    for bar, val in zip(bars, [mean_shap[i] for i in sorted_idx]):
-        ax1.text(val + 0.05, bar.get_y() + bar.get_height()/2,
-                 f"+{val:.2f}°C", va="center", color="#F0F4FF", fontsize=8)
+    # Value labels inside bars (white text for contrast)
+    for bar, val in zip(bars, sorted_vals):
+        label_x = bar.get_width() + max(sorted_vals) * 0.02
+        ax1.text(label_x, bar.get_y() + bar.get_height()/2,
+                 f"{val:.2f}C", va="center", color="#F0F4FF",
+                 fontsize=10, fontweight="bold")
 
     legend_patches = [
-        mpatches.Patch(color="#FF4E1A", label="High impact (top 3)"),
+        mpatches.Patch(color="#FF4E1A", label="High impact"),
         mpatches.Patch(color="#F59E0B", label="Medium impact"),
         mpatches.Patch(color="#00D4B4", label="Lower impact"),
     ]
     ax1.legend(handles=legend_patches, loc="lower right",
-               facecolor="#1C2537", edgecolor="#1E2D45", labelcolor="#8B9DC3")
+               facecolor="#1C2537", edgecolor="#1E2D45",
+               labelcolor="#F0F4FF", fontsize=10)
 
-    # ── 2. Scatter: predicted vs actual ──────────────────────────
+    #  2. Density hexbin: predicted vs actual (handles overlap)
     ax2 = axes[1]
     ax2.set_facecolor("#111827")
     y_pred = model.predict(X_test)
+    y_true = [model.predict(X_test[i:i+1])[0] for i in range(len(X_test))]
 
-    sc = ax2.scatter(
-        [model.predict(X_test[i:i+1])[0] for i in range(len(X_test))],
-        y_pred,
-        c=y_pred, cmap="RdYlGn_r",
-        alpha=0.5, s=12, edgecolors="none"
-    )
-    # Perfect prediction line
-    mn, mx = y_pred.min(), y_pred.max()
-    ax2.plot([mn, mx], [mn, mx], color="#00D4B4", lw=1.5,
-             linestyle="--", label="Perfect prediction")
-    ax2.set_xlabel("Actual LST (°C)",    color="#8B9DC3", fontsize=10)
-    ax2.set_ylabel("Predicted LST (°C)", color="#8B9DC3", fontsize=10)
+    hb = ax2.hexbin(y_true, y_pred, gridsize=30, cmap="viridis",
+                     mincnt=1, edgecolors=None, alpha=0.85)
+    cbar_hb = plt.colorbar(hb, ax=ax2, label="Point density", shrink=0.8)
+    cbar_hb.ax.yaxis.set_tick_params(color="#8B9DC3")
+    plt.setp(plt.getp(cbar_hb.ax.yticklabels, "color"), color="#8B9DC3")
+
+    mn, mx = min(y_pred.min(), y_true[0]), max(y_pred.max(), y_true[0])
+    ax2.plot([mn, mx], [mn, mx], color="#FF4E1A", lw=2,
+             linestyle="--", label="Perfect prediction", alpha=0.8)
+
+    from sklearn.metrics import r2_score
+    r2 = r2_score(y_true, y_pred)
+    ax2.text(0.95, 0.05, f"R2 = {r2:.3f}", transform=ax2.transAxes,
+             color="#F0F4FF", fontsize=12, fontweight="bold",
+             ha="right", va="bottom",
+             bbox=dict(boxstyle="round,pad=0.3", facecolor="#1C2537",
+                       edgecolor="#1E2D45"))
+
+    ax2.set_xlabel("Actual LST (C)",    color="#8B9DC3", fontsize=10)
+    ax2.set_ylabel("Predicted LST (C)", color="#8B9DC3", fontsize=10)
     ax2.set_title("Predicted vs Actual Surface Temperature",
                   color="#F0F4FF", fontsize=12, fontweight="bold", pad=12)
     ax2.tick_params(colors="#8B9DC3", labelsize=9)
     for spine in ax2.spines.values():
         spine.set_color("#1E2D45")
-    plt.colorbar(sc, ax=ax2, label="Predicted LST (°C)")
 
     plt.suptitle("ThermaCity — XGBoost Heat Model Analysis",
                  color="#F0F4FF", fontsize=14, fontweight="bold", y=1.01)
@@ -373,9 +386,9 @@ def run_shap_analysis(model, X_train, X_test, feature_names):
     plt.savefig("outputs/shap_summary.png", dpi=150, bbox_inches="tight",
                 facecolor="#0A0E1A")
     plt.close()
-    print("✓ SHAP plot saved → outputs/shap_summary.png")
+    print(" SHAP plot saved -> outputs/shap_summary.png")
 
-    # ── 3. Per-zone SHAP breakdown (for API) ─────────────────────
+    #  3. Per-zone SHAP breakdown (for API) 
     zone_shap = {}
     mean_shap_values = shap_values.mean(axis=0)
     for i, feat in enumerate(feature_names):
@@ -384,9 +397,9 @@ def run_shap_analysis(model, X_train, X_test, feature_names):
     return shap_values, zone_shap
 
 
-# ─────────────────────────────────────────────
+# 
 # SCENARIO SIMULATOR (the API function)
-# ─────────────────────────────────────────────
+# 
 def build_scenario_simulator(model, scaler, feature_names):
     """
     Returns a function that simulates cooling interventions.
@@ -479,7 +492,7 @@ def build_scenario_simulator(model, scaler, feature_names):
         reduction  = temp_before - temp_after
         area_m2    = CELL_AREA_SQM * coverage
         total_cost = area_m2 * COST_PER_SQM[intervention]
-        cost_per_c = total_cost / reduction if reduction > 0 else float("inf")
+        cost_per_c = total_cost / reduction if reduction > 0 else None
 
         return {
             "intervention":    intervention,
@@ -496,9 +509,9 @@ def build_scenario_simulator(model, scaler, feature_names):
     return simulate
 
 
-# ─────────────────────────────────────────────
+# 
 # PREDICTION API HELPER
-# ─────────────────────────────────────────────
+# 
 def predict_zone_heat(model, scaler, explainer, feature_names, zone_features):
     """
     Predict temperature for a zone + generate SHAP explanation.
@@ -531,9 +544,9 @@ def predict_zone_heat(model, scaler, explainer, feature_names, zone_features):
     }
 
 
-# ─────────────────────────────────────────────
+# 
 # MAIN
-# ─────────────────────────────────────────────
+# 
 def main():
     print("\n" + "="*50)
     print("  THERMACITY — Model Training")
@@ -546,7 +559,7 @@ def main():
     X_train, X_test, y_train, y_test, scaler = preprocess(df)
 
     # 3. Train XGBoost
-    print("\n🚀 Training XGBoost model...")
+    print("\n Training XGBoost model...")
     model = train_xgboost(X_train, y_train)
 
     # 4. Evaluate
@@ -556,10 +569,10 @@ def main():
     shap_vals, global_shap = run_shap_analysis(
         model, X_train, X_test, FEATURE_COLS
     )
-    print("\n🔥 Top heat drivers (city-wide SHAP):")
+    print("\n Top heat drivers (city-wide SHAP):")
     for feat, val in sorted(global_shap.items(), key=lambda x: abs(x[1]), reverse=True)[:5]:
         sign = "+" if val > 0 else ""
-        print(f"  {feat:<22} {sign}{val:.3f}°C contribution")
+        print(f"  {feat:<22} {sign}{val:.3f}C contribution")
 
     # 6. Save everything
     model.save_model("models/heat_predictor.json")
@@ -571,14 +584,14 @@ def main():
     with open("outputs/global_shap.json", "w") as f:
         json.dump(global_shap, f, indent=2)
 
-    print(f"\n✅ Model saved → models/heat_predictor.json")
-    print(f"✅ Scaler saved → models/scaler.pkl")
-    print(f"✅ Metrics saved → outputs/model_metrics.json")
+    print(f"\n Model saved -> models/heat_predictor.json")
+    print(f" Scaler saved -> models/scaler.pkl")
+    print(f" Metrics saved -> outputs/model_metrics.json")
 
     # 7. Demo: simulate an intervention on Downtown
-    print("\n" + "─"*50)
-    print("🧪 Demo: Simulating cool roofs on Downtown")
-    print("─"*50)
+    print("\n" + ""*50)
+    print(" Demo: Simulating cool roofs on Downtown")
+    print(""*50)
 
     # Typical Downtown feature values
     downtown_features = {
@@ -599,22 +612,22 @@ def main():
     prediction = predict_zone_heat(
         model, scaler, explainer, FEATURE_COLS, downtown_features
     )
-    print(f"\n  Predicted LST:   {prediction['predicted_LST_C']}°C")
+    print(f"\n  Predicted LST:   {prediction['predicted_LST_C']}C")
     print(f"  Top heat drivers:")
     for driver in prediction["top_heat_drivers"]:
-        print(f"    {driver['feature']:<22} +{driver['contribution_C']:.2f}°C")
+        print(f"    {driver['feature']:<22} +{driver['contribution_C']:.2f}C")
 
     simulate = build_scenario_simulator(model, scaler, FEATURE_COLS)
     result   = simulate(downtown_features, "cool_roofs", coverage_pct=65)
     print(f"\n  Intervention:    cool_roofs @ 65% coverage")
-    print(f"  Before:          {result['temp_before_C']}°C")
-    print(f"  After:           {result['temp_after_C']}°C")
-    print(f"  Reduction:       −{result['reduction_C']}°C")
+    print(f"  Before:          {result['temp_before_C']}C")
+    print(f"  After:           {result['temp_after_C']}C")
+    print(f"  Reduction:       −{result['reduction_C']}C")
     print(f"  Total cost:      ₹{result['total_cost_INR']:,.0f}")
-    print(f"  Cost efficiency: ₹{result['cost_per_degC']:,.0f} per °C")
+    print(f"  Cost efficiency: ₹{result['cost_per_degC']:,.0f} per C")
     print(f"  Confidence:      {result['confidence_pct']}%")
 
-    print("\n✓ Step 2 complete. Run step3_api.py to launch the backend.")
+    print("\n Step 2 complete. Run step3_api.py to launch the backend.")
     return model, scaler, metrics
 
 

@@ -199,7 +199,7 @@ class ConvBlock(nn.Module):
             nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=False),
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
+            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=False),
         ]
@@ -346,34 +346,44 @@ def plot_training_curves(history):
 
 
 def plot_confusion_matrix(all_labels, all_preds):
-    """Plot normalized confusion matrix."""
+    """Plot normalized confusion matrix with clear text overlays."""
     cm      = confusion_matrix(all_labels, all_preds)
     cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
 
-    fig, ax = plt.subplots(figsize=(8, 7))
+    fig, ax = plt.subplots(figsize=(9, 8))
     fig.patch.set_facecolor("#0A0E1A")
     ax.set_facecolor("#111827")
 
     im = ax.imshow(cm_norm, cmap="YlOrRd", vmin=0, vmax=1)
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, shrink=0.8)
+    cbar.set_label("Normalized Accuracy", color="#F0F4FF", fontsize=10)
+    cbar.ax.yaxis.set_tick_params(color="#8B9DC3")
+    plt.setp(plt.getp(cbar.ax.yticklabels, "color"), color="#8B9DC3")
 
     ax.set_xticks(range(N_CLASSES))
     ax.set_yticks(range(N_CLASSES))
-    ax.set_xticklabels(CLASS_NAMES, color="#8B9DC3", fontsize=11)
-    ax.set_yticklabels(CLASS_NAMES, color="#8B9DC3", fontsize=11)
-    ax.set_xlabel("Predicted", color="#F0F4FF", fontsize=12)
-    ax.set_ylabel("True",      color="#F0F4FF", fontsize=12)
+    ax.set_xticklabels(CLASS_NAMES, color="#F0F4FF", fontsize=13, fontweight="bold")
+    ax.set_yticklabels(CLASS_NAMES, color="#F0F4FF", fontsize=13, fontweight="bold")
+    ax.set_xlabel("Predicted", color="#F0F4FF", fontsize=13)
+    ax.set_ylabel("True",      color="#F0F4FF", fontsize=13)
     ax.set_title("Confusion Matrix (Normalized)", color="#F0F4FF",
-                 fontsize=13, fontweight="bold", pad=15)
+                 fontsize=15, fontweight="bold", pad=16)
+
+    # Grid lines for cell separation
+    ax.set_xticks(np.arange(-0.5, N_CLASSES, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, N_CLASSES, 1), minor=True)
+    ax.grid(which="minor", color="#1E2D45", linewidth=2)
+    ax.tick_params(which="minor", bottom=False, left=False)
 
     for i in range(N_CLASSES):
         for j in range(N_CLASSES):
             val   = cm_norm[i, j]
             count = cm[i, j]
-            color = "white" if val < 0.5 else "#0A0E1A"
-            ax.text(j, i, f"{val:.2f}\n({count})",
-                    ha="center", va="center", color=color,
-                    fontsize=10, fontweight="bold")
+            bg = cm_norm[i, j]
+            text_color = "white" if bg < 0.5 else "#0A0E1A"
+            ax.text(j, i, f"{val:.0%}\n({count})",
+                    ha="center", va="center", color=text_color,
+                    fontsize=13, fontweight="bold")
 
     plt.tight_layout()
     plt.savefig("outputs/confusion_matrix.png", dpi=150,
@@ -418,11 +428,18 @@ def visualize_attention(model, val_dataset, n_samples=8):
                                color=CLASS_COLORS[label], fontsize=8, fontweight="bold")
         axes[0, col].axis("off")
 
-        # Row 1: attention map overlaid
+        # Row 1: attention map overlaid as contour lines for clarity
         attn_up = np.kron(attn, np.ones((4, 4)))   # upsample 16→64
-        axes[1, col].imshow(raw,    cmap="gray",  alpha=0.4)
-        axes[1, col].imshow(attn_up, cmap="hot",  alpha=0.7, vmin=0, vmax=1)
-        axes[1, col].set_title("Attention", color="#8B9DC3", fontsize=8)
+        axes[1, col].imshow(raw, cmap="inferno", vmin=0, vmax=1, alpha=0.65)
+        cs = axes[1, col].contour(attn_up, levels=4, cmap="coolwarm",
+                                   linewidths=1.8, alpha=0.9, vmin=0, vmax=1)
+        # Add a semi-transparent filled overlay for high-attention regions
+        mask = attn_up > 0.5
+        if mask.any():
+            overlay = np.zeros((*attn_up.shape, 4))
+            overlay[mask] = [1.0, 0.2, 0.2, 0.35]  # red highlight
+            axes[1, col].imshow(overlay)
+        axes[1, col].set_title(f"Attention (contours)", color="#F0F4FF", fontsize=8)
         axes[1, col].axis("off")
 
         # Row 2: prediction bar
