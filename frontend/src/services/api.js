@@ -1,4 +1,4 @@
-const BASE = "http://localhost:8000";
+const BASE = "https://heat-mitigation-production.up.railway.app";
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`);
