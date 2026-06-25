@@ -24,7 +24,7 @@ dist/
 # Generated data / models / outputs
 backend/data/
 backend/cache/
-backend/models/
+
 backend/outputs/
 
 # IDE
@@ -46,7 +46,6 @@ $RECYCLE.BIN/
 backend/*.log
 
 # Models / weights / data
-*.pth
 *.npy
 *.npz
 
