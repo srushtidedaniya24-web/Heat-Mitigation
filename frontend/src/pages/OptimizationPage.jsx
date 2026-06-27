@@ -4,6 +4,8 @@ import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchZones, fetchInterventions, simulateIntervention, fetchRecommendations } from "../services/api";
 import "../styles/pages.css";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp } from "../utils/formatUtils";
 
 const INTERVENTION_LABELS = {
   cool_roofs: "Cool Roof Coating",
@@ -16,6 +18,7 @@ const INTERVENTION_LABELS = {
 export default function OptimizationPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "optimization");
+  const { settings } = useSettings();
 
   const [zones, setZones] = useState([]);
   const [intvByZone, setIntvByZone] = useState({});
@@ -207,7 +210,7 @@ export default function OptimizationPage() {
                 </div>
               </div>
             </div>
-            <button disabled className={"bg-primary/60 text-on-primary h-16 px-8 rounded-lg font-bold text-lg flex items-center gap-3"}>
+            <button onClick={() => { if (Object.keys(results).length === 0) return; const rows = zones.filter(z => results[z.zone_id] && !results[z.zone_id].error).map(z => { const r = results[z.zone_id]; return `${z.name},${r.intervention},${r.coverage_pct}%,${r.temp_before_C}°C,${r.temp_after_C}°C,${r.reduction_C}°C,₹${(r.total_cost_INR/1e7).toFixed(1)}Cr`; }).join("\n"); const csv = "Zone,Intervention,Coverage,Temp Before,Temp After,Reduction,Cost\n" + rows; const blob = new Blob([csv], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "optimization_report.csv"; a.click(); }} disabled={Object.keys(results).length === 0} className={"bg-primary text-on-primary h-16 px-8 rounded-lg font-bold text-lg flex items-center gap-3 hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"}>
               <span className={"material-symbols-outlined"}>summarize</span>
               Generate Optimization Report
             </button>
@@ -242,7 +245,7 @@ export default function OptimizationPage() {
                               <div className={"absolute inset-y-0 left-0 bg-error/70 rounded"} style={{ width: `${(r.temp_before_C - minT) / range * 100}%` }}></div>
                               <div className={"absolute inset-y-0 left-0 bg-secondary/70 rounded"} style={{ width: `${(r.temp_after_C - minT) / range * 100}%` }}></div>
                               <span className={"absolute inset-0 flex items-center justify-center text-[9px] font-bold text-on-surface mix-blend-difference"}>
-                                {r.temp_before_C.toFixed(1)}°C → {r.temp_after_C.toFixed(1)}°C
+                                {formatTemp(r.temp_before_C, settings.temperature_unit)} → {formatTemp(r.temp_after_C, settings.temperature_unit)}
                               </span>
                             </div>
                           </div>
@@ -417,8 +420,8 @@ export default function OptimizationPage() {
                     if (r.error) return <p className={"text-error text-sm"}>{r.error}</p>;
                     return (
                       <div className={"space-y-2 text-sm"}>
-                        <div className={"flex justify-between"}><span>Before</span><span className={"font-bold"}>{r.temp_before_C}°C</span></div>
-                        <div className={"flex justify-between"}><span>After</span><span className={"font-bold text-secondary"}>{r.temp_after_C}°C</span></div>
+                        <div className={"flex justify-between"}><span>Before</span><span className={"font-bold"}>{formatTemp(r.temp_before_C, settings.temperature_unit)}</span></div>
+                        <div className={"flex justify-between"}><span>After</span><span className={"font-bold text-secondary"}>{formatTemp(r.temp_after_C, settings.temperature_unit)}</span></div>
                         <div className={"flex justify-between border-t border-outline-variant pt-1"}><span>Reduction</span><span className={"font-bold " + (r.reduction_C > 0 ? "text-secondary" : "text-error")}>{r.reduction_C > 0 ? "-" : "+"}{Math.abs(r.reduction_C).toFixed(1)}°C</span></div>
                         <div className={"flex justify-between"}><span>Cost</span><span className={"font-bold"}>₹{(r.total_cost_INR / 1e7).toFixed(1)}Cr</span></div>
                         <div className={"flex justify-between"}><span>Risk</span><span className={"font-bold text-xs"}>{r.risk_before} → {r.risk_after}</span></div>

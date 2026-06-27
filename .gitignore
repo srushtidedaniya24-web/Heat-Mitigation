@@ -56,3 +56,6 @@ backend/api_stderr.log
 # Backups
 *.bak
 *.orig
+
+# Model backup
+model-backup/

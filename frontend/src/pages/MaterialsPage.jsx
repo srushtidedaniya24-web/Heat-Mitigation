@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchInterventions, fetchZones } from "../services/api";
+import "../styles/pages.css";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp } from "../utils/formatUtils";
 
 export default function MaterialsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "materials");
+  const { settings } = useSettings();
 
   const [materials, setMaterials] = useState([]);
   const [zones, setZones] = useState([]);
@@ -111,8 +115,8 @@ export default function MaterialsPage() {
                   {materials.length ? (materials.reduce((s, m) => s + m.albedo_change, 0) / materials.length).toFixed(2) : "--"}
                 </span>
               </div>
-              <div className={"w-full bg-surface-variant h-1 rounded-full overflow-hidden"}>
-                <div className={"bg-primary h-full"} style={{"width": `${Math.min(100, (materials.reduce((s, m) => s + m.albedo_change, 0) / materials.length / 0.55) * 100)}%`}}></div>
+                <div className={"w-full bg-surface-variant h-1 rounded-full overflow-hidden"}>
+                <div className={"bg-primary h-full"} style={{"width": `${materials.length ? Math.min(100, (materials.reduce((s, m) => s + m.albedo_change, 0) / materials.length / 0.55) * 100) : 0}%`}}></div>
               </div>
               <div className={"flex justify-between items-center text-sm mt-4"}>
                 <span className={"text-on-surface-variant"}>
@@ -185,7 +189,7 @@ export default function MaterialsPage() {
                       <tr key={m.id} className={`hover:bg-surface-variant/20 transition-colors ${m.recommended ? "border-l-4 border-primary" : ""}`}>
                         <td className={"px-6 py-4 font-semibold text-on-surface"}>{m.label}</td>
                         <td className={"px-4 py-4 font-data-sm"}>+{m.albedo_change}</td>
-                        <td className={"px-4 py-4 font-data-sm"}>{m.temp_before}°C</td>
+                        <td className={"px-4 py-4 font-data-sm"}>{formatTemp(m.temp_before, settings.temperature_unit)}</td>
                         <td className={"px-4 py-4 font-data-lg text-primary"}>
                           {m.reduction_C > 0 ? `-${Math.abs(m.reduction_C).toFixed(1)}°C` : `${m.reduction_C.toFixed(1)}°C`}
                         </td>
@@ -211,7 +215,7 @@ export default function MaterialsPage() {
                     <tr className={"hover:bg-surface-variant/20 transition-colors bg-error-container/10"}>
                       <td className={"px-6 py-4 font-semibold text-on-surface"}>Conventional Asphalt</td>
                       <td className={"px-4 py-4 font-data-sm"}>0.00</td>
-                      <td className={"px-4 py-4 font-data-sm"}>{top.temp_before || "--"}°C</td>
+                      <td className={"px-4 py-4 font-data-sm"}>{formatTemp(top.temp_before, settings.temperature_unit)}</td>
                       <td className={"px-4 py-4 font-data-lg text-secondary"}>0.0°C</td>
                       <td className={"px-4 py-4 font-data-sm"}>₹1,500</td>
                       <td className={"px-4 py-4"}>Med-High</td>

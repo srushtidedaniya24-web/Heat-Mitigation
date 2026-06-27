@@ -5,7 +5,7 @@ Serves all endpoints the React frontend needs.
 
 HOW TO RUN:
   pip install fastapi uvicorn
-  python step3_api.py
+  python api.py
   → API live at http://localhost:8000
   → Docs at  http://localhost:8000/docs
 
@@ -200,10 +200,25 @@ def get_shap_breakdown(features: dict) -> dict:
     return {f: round(float(vals[i]), 3) for i, f in enumerate(FEATURE_NAMES)}
 
 
-def get_risk_level(lst: float) -> str:
-    if lst >= HEAT_RISK_THRESHOLDS["CRITICAL"]: return "CRITICAL"
-    if lst >= HEAT_RISK_THRESHOLDS["HIGH"]:     return "HIGH"
-    if lst >= HEAT_RISK_THRESHOLDS["MEDIUM"]:   return "MEDIUM"
+def _get_alert_thresholds() -> dict:
+    """Return thresholds from settings store, falling back to defaults."""
+    try:
+        s = _settings_store
+    except NameError:
+        return HEAT_RISK_THRESHOLDS.copy()
+    return {
+        "CRITICAL": float(s.get("alert_critical_temp", HEAT_RISK_THRESHOLDS["CRITICAL"])),
+        "HIGH":     float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["HIGH"])),
+        "MEDIUM":   float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["MEDIUM"])) - 4,
+        "LOW":      0.0,
+    }
+
+
+def get_risk_level(lst: float, thresholds: dict | None = None) -> str:
+    t = thresholds or HEAT_RISK_THRESHOLDS
+    if lst >= t["CRITICAL"]: return "CRITICAL"
+    if lst >= t["HIGH"]:     return "HIGH"
+    if lst >= t["MEDIUM"]:   return "MEDIUM"
     return "LOW"
 
 
@@ -256,7 +271,11 @@ def list_zones():
 
 
 @app.get("/heatmap")
-def get_heatmap(city: str = Query("mumbai")):
+def get_heatmap(
+    city: str = Query("mumbai"),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
     """
     Returns GeoJSON-style heat data for all zones.
     Frontend uses this to color the map polygons.
@@ -291,6 +310,8 @@ def get_heatmap(city: str = Query("mumbai")):
 
     return {
         "city":        city,
+        "date_from":   date_from or "all",
+        "date_to":     date_to or "all",
         "city_avg_C":  city_avg,
         "zone_count":  len(features_list),
         "zones":       features_list,
@@ -604,6 +625,177 @@ def get_model_metrics():
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(404, "Metrics not found. Run step2_train_model.py first.")
+
+
+# ─────────────────────────────────────────────
+# SETTINGS
+# ─────────────────────────────────────────────
+
+from pydantic import BaseModel
+
+DEFAULT_SETTINGS = {
+    "temperature_unit": "celsius",
+    "time_format": "24h",
+    "default_map_layer": "lst",
+    "auto_refresh": 30,
+    "alert_critical_temp": 50,
+    "alert_warning_temp": 45,
+    "push_notifications": True,
+    "email_digests": False,
+    "display_name": "Admin User",
+    "email": "admin@thermacity.io",
+    "organization": "Urban Climate Initiative",
+    "role": "Administrator",
+}
+
+_settings_store: dict = DEFAULT_SETTINGS.copy()
+
+
+class SettingsModel(BaseModel):
+    temperature_unit: str = "celsius"
+    time_format: str = "24h"
+    default_map_layer: str = "lst"
+    auto_refresh: int = 30
+    alert_critical_temp: int = 50
+    alert_warning_temp: int = 45
+    push_notifications: bool = True
+    email_digests: bool = False
+    display_name: str = "Admin User"
+    email: str = "admin@thermacity.io"
+    organization: str = "Urban Climate Initiative"
+    role: str = "Administrator"
+
+
+@app.get("/settings")
+def get_settings():
+    return _settings_store
+
+
+@app.post("/settings")
+def save_settings(body: SettingsModel):
+    _settings_store.clear()
+    _settings_store.update(body.model_dump())
+    return {"status": "saved", "settings": _settings_store}
+
+
+# ─────────────────────────────────────────────
+# REPORTS
+# ─────────────────────────────────────────────
+
+_reports_db: list[dict] = []
+_report_id_seq: int = 0
+
+def _compute_city_avg_lst() -> float:
+    temps = [predict_lst(z["features"]) for z in ZONE_DATA.values()]
+    return round(sum(temps) / len(temps), 2) if temps else 0.0
+
+
+@app.get("/reports")
+def get_reports(type: str = Query(None)):
+    results = _reports_db[:]
+    if type and type != "all":
+        results = [r for r in results if r["type"].lower() == type.lower()]
+    total = len(_reports_db)
+    scheduled = sum(1 for r in _reports_db if r.get("scheduled"))
+    this_month = sum(1 for r in _reports_db if r["date"].endswith("Jun 2026"))
+    pending = sum(1 for r in _reports_db if r["status"] in ("Draft", "Review"))
+    return {
+        "reports": results,
+        "stats": { "total": total, "scheduled": scheduled, "this_month": this_month, "pending": pending },
+    }
+
+
+@app.post("/reports/generate")
+def generate_report(name: str = Query("Heat Summary"), type: str = Query("Thermal Analysis")):
+    global _report_id_seq
+    _report_id_seq += 1
+    now = datetime.now(timezone.utc)
+    avg_lst = _compute_city_avg_lst()
+    zones = []
+    for zid, z in ZONE_DATA.items():
+        lst = predict_lst(z["features"])
+        zones.append({ "zone_id": zid, "name": z["name"], "LST_celsius": round(lst, 2),
+                       "risk_level": get_risk_level(lst), "population": z["population"] })
+    zones.sort(key=lambda x: x["LST_celsius"], reverse=True)
+
+    report = {
+        "id":       f"RPT-{_report_id_seq:04d}",
+        "name":     name,
+        "type":     type,
+        "date":     now.strftime("%d %b %Y"),
+        "status":   "Final",
+        "summary":  {
+            "city_avg_C":     avg_lst,
+            "zones_analyzed": len(zones),
+            "critical":       sum(1 for z in zones if z["risk_level"] == "CRITICAL"),
+            "high":           sum(1 for z in zones if z["risk_level"] == "HIGH"),
+            "hottest_zone":   zones[0]["name"] if zones else None,
+            "hottest_temp":   zones[0]["LST_celsius"] if zones else None,
+            "coolest_zone":   zones[-1]["name"] if zones else None,
+            "coolest_temp":   zones[-1]["LST_celsius"] if zones else None,
+        },
+        "zones":    zones,
+        "generated_at": now.isoformat(),
+    }
+    _reports_db.insert(0, report)
+    return report
+
+
+# ─────────────────────────────────────────────
+# ALERTS
+# ─────────────────────────────────────────────
+
+from datetime import datetime, timezone
+
+_resolved_alerts: set[str] = set()
+_alert_counter: int = 0
+
+@app.get("/alerts")
+def get_alerts():
+    global _alert_counter
+    thresholds = _get_alert_thresholds()
+    alerts = []
+    for zone_id, zone in ZONE_DATA.items():
+        if zone_id in _resolved_alerts:
+            continue
+        lst = predict_lst(zone["features"])
+        if lst < thresholds["MEDIUM"]:
+            continue
+        risk = get_risk_level(lst, thresholds)
+        _alert_counter += 1
+        now = datetime.now(timezone.utc)
+        alerts.append({
+            "id":             f"ALT-{_alert_counter:04d}",
+            "zone_id":        zone_id,
+            "name":           zone["name"],
+            "LST_celsius":    round(lst, 2),
+            "risk_level":     risk,
+            "population":     zone["population"],
+            "timestamp":      now.isoformat(),
+            "status":         "active",
+            "drivers":        [{"feature": k, "contribution_C": v}
+                               for k, v in sorted(get_shap_breakdown(zone["features"]).items(),
+                               key=lambda x: x[1], reverse=True)[:3]],
+        })
+    alerts.sort(key=lambda a: a["LST_celsius"], reverse=True)
+    now = datetime.now(timezone.utc)
+    return {
+        "alerts":     alerts,
+        "total":      len(alerts),
+        "generated":  now.isoformat(),
+        "critical":   sum(1 for a in alerts if a["risk_level"] == "CRITICAL"),
+        "high":       sum(1 for a in alerts if a["risk_level"] == "HIGH"),
+        "medium":     sum(1 for a in alerts if a["risk_level"] == "MEDIUM"),
+    }
+
+
+@app.post("/alerts/resolve/{zone_id}")
+def resolve_alert(zone_id: str):
+    zone_id = zone_id.lower()
+    if zone_id not in ZONE_DATA:
+        raise HTTPException(404, f"Zone '{zone_id}' not found")
+    _resolved_alerts.add(zone_id)
+    return {"status": "resolved", "zone_id": zone_id, "resolved_at": datetime.now(timezone.utc).isoformat()}
 
 
 # ─────────────────────────────────────────────

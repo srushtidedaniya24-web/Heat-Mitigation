@@ -4,7 +4,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
-import { fetchHeatmap, fetchRecommendations } from "../services/api";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp, formatTime } from "../utils/formatUtils";
+import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../services/api";
 import "../styles/pages.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,11 +19,24 @@ L.Icon.Default.mergeOptions({
 export default function OverviewPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "overview");
+  const { settings } = useSettings();
 
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
   const [recs, setRecs] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [simType, setSimType] = useState("cool_roofs");
+  const [simCoverage, setSimCoverage] = useState(65);
+  const [simResult, setSimResult] = useState(null);
+  const [simRunning, setSimRunning] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const dayProgress = ((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100;
 
   useEffect(() => {
     fetchHeatmap()
@@ -117,6 +132,8 @@ export default function OverviewPage() {
               const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
                                 z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
               const isHottest = zones.length && z.LST_celsius === Math.max(...zones.map(x => x.LST_celsius));
+              const unit = settings.temperature_unit;
+              const ft = (v) => formatTemp(v, unit);
               const icon = L.divIcon({
                 className: "custom-zone-marker",
                 html: isHottest
@@ -127,12 +144,12 @@ export default function OverviewPage() {
                        </div>
                        <div style="background:rgba(15,25,40,0.9);backdrop-filter:blur(8px);border:1px solid ${riskColor};padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">
                          <span style="font-size:13px;font-weight:700;color:#e8edf5">${z.name}</span>
-                         <span style="font-size:16px;font-weight:700;color:${riskColor}">${z.LST_celsius}°C</span>
+                          <span style="font-size:16px;font-weight:700;color:${riskColor}">${ft(z.LST_celsius)}</span>
                        </div>
                      </div>`
                   : `<div style="background:rgba(15,25,40,0.85);backdrop-filter:blur(4px);border:1px solid ${riskColor};padding:4px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;transition:transform 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.4)">
                        <span style="width:8px;height:8px;border-radius:50%;background:${riskColor};display:inline-block"></span>
-                       <span style="font-size:11px;font-weight:700;color:#e8edf5">${z.name}: ${z.LST_celsius}°C</span>
+                        <span style="font-size:11px;font-weight:700;color:#e8edf5">${z.name}: ${ft(z.LST_celsius)}</span>
                      </div>`,
                 iconSize: isHottest ? [200, 64] : [160, 28],
                 iconAnchor: isHottest ? [100, 64] : [80, 14],
@@ -180,18 +197,18 @@ export default function OverviewPage() {
           <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-surface-container-low/95 backdrop-blur border border-outline-variant p-4 rounded-xl shadow-2xl z-[1000]"}>
             <div className={"flex items-center justify-between mb-3 px-2"}>
               <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                08:00 AM
+                {formatTime(new Date(new Date().setHours(8,0,0,0)).toISOString(), settings.time_format)}
               </span>
               <span className={"font-data-sm text-data-sm text-primary font-bold"}>
-                02:45 PM (PEAK)
+                {formatTime(now.toISOString(), settings.time_format)} (NOW)
               </span>
               <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                10:00 PM
+                {formatTime(new Date(new Date().setHours(22,0,0,0)).toISOString(), settings.time_format)}
               </span>
             </div>
             <div className={"relative h-2 bg-surface-variant rounded-full overflow-hidden"}>
-              <div className={"absolute top-0 left-0 h-full w-[65%] bg-primary"}></div>
-              <div className={"absolute top-1/2 left-[65%] -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-primary cursor-pointer"}></div>
+              <div className={"absolute top-0 left-0 h-full w-full"} style={{width: `${dayProgress}%`, background: "linear-gradient(90deg, #00d4b4 0%, #f97316 50%, #ef4444 100%)"}}></div>
+              <div className={"absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-primary cursor-pointer"} style={{left: `${dayProgress}%`}}></div>
             </div>
           </div>
         </main>
@@ -209,7 +226,7 @@ export default function OverviewPage() {
               <div className={"relative mb-2"}>
                 <div className={"absolute -inset-4 rounded-full border border-error/20 pulse-ring"}></div>
                 <span className={"font-data-lg text-[42px] leading-tight text-error tracking-tighter"}>
-                  {selectedZone?.LST_celsius || "--"}°C
+                  {formatTemp(selectedZone?.LST_celsius, settings.temperature_unit)}
                 </span>
               </div>
               <span className={"font-data-sm text-data-sm text-error/80 uppercase tracking-widest"}>
@@ -315,16 +332,12 @@ export default function OverviewPage() {
                 <label className={"block font-data-sm text-[10px] text-on-surface-variant uppercase mb-2"}>
                   Select Strategy
                 </label>
-                <select className={"w-full bg-surface-container border border-outline-variant rounded p-2 text-body-sm focus:border-primary outline-none"}>
-                  <option>
-                    Cool Roofs (Reflective)
-                  </option>
-                  <option>
-                    Urban Reforestation
-                  </option>
-                  <option>
-                    Permeable Paving
-                  </option>
+                <select value={simType} onChange={e => { setSimType(e.target.value); setSimResult(null); }} className={"w-full bg-surface-container border border-outline-variant rounded p-2 text-body-sm focus:border-primary outline-none"}>
+                  <option value="cool_roofs">Cool Roofs (Reflective)</option>
+                  <option value="cool_pavements">Cool Pavement</option>
+                  <option value="high_albedo_paint">High-Albedo Paint</option>
+                  <option value="green_roofs">Green Roof</option>
+                  <option value="urban_greening">Urban Greening</option>
                 </select>
               </div>
               <div>
@@ -333,61 +346,51 @@ export default function OverviewPage() {
                     Implementation Coverage
                   </label>
                   <span className={"font-data-sm text-primary"}>
-                    65%
+                    {simCoverage}%
                   </span>
                 </div>
-                <input className={"w-full h-1 bg-surface-variant rounded-full appearance-none cursor-pointer accent-primary"} type={"range"} defaultValue={"65"} />
+                <input value={simCoverage} onChange={e => { setSimCoverage(Number(e.target.value)); setSimResult(null); }} className={"w-full h-1 bg-surface-variant rounded-full appearance-none cursor-pointer accent-primary"} type={"range"} min={10} max={100} step={5} />
               </div>
-              <button className={"w-full py-3 bg-primary text-on-primary font-bold text-body-sm rounded hover:brightness-110 transition-all flex items-center justify-center gap-2"}>
+              <button onClick={async () => { if (!selectedZone) return; setSimRunning(true); try { const r = await simulateIntervention(selectedZone.zone_id, simType, simCoverage); setSimResult(r); } catch (e) { setSimResult({ error: e.message }); } finally { setSimRunning(false); } }} disabled={simRunning || !selectedZone} className={"w-full py-3 bg-primary text-on-primary font-bold text-body-sm rounded hover:brightness-110 transition-all flex items-center justify-center gap-2 disabled:opacity-40"}>
                 <span className={"material-symbols-outlined text-sm"}>
-                  play_arrow
+                  {simRunning ? "hourglass_top" : "play_arrow"}
                 </span>
-                RUN SIMULATION
+                {simRunning ? "SIMULATING..." : "RUN SIMULATION"}
               </button>
             </div>
             <div className={"bg-primary/10 border border-primary/30 p-4 rounded-lg"}>
               <h4 className={"font-data-sm text-[10px] text-primary uppercase mb-3 font-bold"}>
                 Predicted Outcome
               </h4>
-              <div className={"flex items-center justify-between mb-4"}>
-                <div className={"text-center"}>
-                  <p className={"font-data-sm text-[10px] text-on-surface-variant"}>
-                    Current
-                  </p>
-                  <p className={"font-data-lg text-on-surface"}>
-                    56.8°C
-                  </p>
+              {simResult && !simResult.error ? (
+                <>
+                  <div className={"flex items-center justify-between mb-4"}>
+                    <div className={"text-center"}>
+                      <p className={"font-data-sm text-[10px] text-on-surface-variant"}>Current</p>
+                      <p className={"font-data-lg text-on-surface"}>{formatTemp(simResult.temp_before_C, settings.temperature_unit)}</p>
+                    </div>
+                    <span className={"material-symbols-outlined text-primary"}>trending_down</span>
+                    <div className={"text-center"}>
+                      <p className={"font-data-sm text-[10px] text-on-surface-variant"}>Simulated</p>
+                      <p className={"font-data-lg text-primary"}>{formatTemp(simResult.temp_after_C, settings.temperature_unit)}</p>
+                    </div>
+                  </div>
+                  <div className={"grid grid-cols-2 gap-4 border-t border-primary/20 pt-3"}>
+                    <div>
+                      <p className={"font-data-sm text-[10px] text-on-surface-variant uppercase"}>Reduction</p>
+                      <p className={"font-body-md font-bold text-primary"}>-{formatTemp(simResult.reduction_C, settings.temperature_unit)}</p>
+                    </div>
+                    <div>
+                      <p className={"font-data-sm text-[10px] text-on-surface-variant uppercase"}>Est. Cost</p>
+                      <p className={"font-body-md font-bold text-on-surface"}>₹{(simResult.total_cost_INR / 1e6).toFixed(1)} Cr</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className={"text-center text-on-surface-variant text-sm py-4"}>
+                  {simResult?.error ? simResult.error : "Run a simulation to see outcomes"}
                 </div>
-                <span className={"material-symbols-outlined text-primary"}>
-                  trending_down
-                </span>
-                <div className={"text-center"}>
-                  <p className={"font-data-sm text-[10px] text-on-surface-variant"}>
-                    Simulated
-                  </p>
-                  <p className={"font-data-lg text-primary"}>
-                    44.3°C
-                  </p>
-                </div>
-              </div>
-              <div className={"grid grid-cols-2 gap-4 border-t border-primary/20 pt-3"}>
-                <div>
-                  <p className={"font-data-sm text-[10px] text-on-surface-variant uppercase"}>
-                    Reduction
-                  </p>
-                  <p className={"font-body-md font-bold text-primary"}>
-                    -12.5°C
-                  </p>
-                </div>
-                <div>
-                  <p className={"font-data-sm text-[10px] text-on-surface-variant uppercase"}>
-                    Est. Cost
-                  </p>
-                  <p className={"font-body-md font-bold text-on-surface"}>
-                    ₹2.4 Cr
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </aside>
