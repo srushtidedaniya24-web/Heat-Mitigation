@@ -1,11 +1,14 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Tooltip, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Tooltip, ImageOverlay } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
-import { fetchHeatmap, fetchGridHeatmap } from "../services/api";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp } from "../utils/formatUtils";
+import { fetchHeatmap, fetchGridHeatmap, fetchRecommendations } from "../services/api";
+import { generateSmoothRaster } from "../utils/smoothRaster";
 import "../styles/pages.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -141,14 +144,22 @@ function LayerLegend({ layerId }) {
 export default function HeatMapsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "heatmaps");
+  const { settings } = useSettings();
 
   const [zones, setZones] = useState([]);
   const [gridCells, setGridCells] = useState([]);
-  const [activeLayer, setActiveLayer] = useState("lst");
+  const [activeLayer, setActiveLayer] = useState(settings.default_map_layer || "lst");
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState("2024-03-01");
+  const [dateTo, setDateTo] = useState("2024-05-31");
+  const [satSource, setSatSource] = useState("Landsat 8/9");
+  const [activeTab, setActiveTab] = useState("details");
+  const [recs, setRecs] = useState(null);
+  const [recsLoading, setRecsLoading] = useState(false);
 
-  useEffect(() => {
-    Promise.all([fetchHeatmap(), fetchGridHeatmap(2)])
+  const loadData = useCallback((f, t) => {
+    setLoading(true);
+    Promise.all([fetchHeatmap(f, t), fetchGridHeatmap(2)])
       .then(([heatData, gridData]) => {
         setZones(heatData.zones || []);
         setGridCells(gridData.cells || []);
@@ -157,52 +168,47 @@ export default function HeatMapsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const cityAvg = useMemo(
-    () => zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 0,
-    [zones]
-  );
+  useEffect(() => {
+    loadData(dateFrom, dateTo);
+  }, []);
+
+  const handleRefresh = () => {
+    loadData(dateFrom, dateTo);
+  };
 
   const hottestZone = useMemo(
     () => zones.length ? zones.reduce((a, b) => a.LST_celsius > b.LST_celsius ? a : b) : null,
     [zones]
   );
+
+  useEffect(() => {
+    if (!hottestZone) { setRecs(null); return; }
+    setRecsLoading(true);
+    fetchRecommendations(hottestZone.zone_id)
+      .then(setRecs)
+      .catch(() => setRecs(null))
+      .finally(() => setRecsLoading(false));
+  }, [hottestZone]);
+
+  const cityAvg = useMemo(
+    () => zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 0,
+    [zones]
+  );
+
   const coolestZone = useMemo(
     () => zones.length ? zones.reduce((a, b) => a.LST_celsius < b.LST_celsius ? a : b) : null,
     [zones]
   );
 
-  const gridGeoJson = useMemo(() => ({
-    type: "FeatureCollection",
-    features: gridCells.map(c => {
-      // Use bbox from API if available, else fallback to lon/lat + GRID_SIZE
-      let sw_lon, sw_lat, ne_lon, ne_lat;
-      if (c.bbox) {
-        [sw_lon, sw_lat, ne_lon, ne_lat] = c.bbox;
-      } else {
-        sw_lon = c.lon - GRID_SIZE / 2;
-        sw_lat = c.lat - GRID_SIZE / 2;
-        ne_lon = c.lon + GRID_SIZE / 2;
-        ne_lat = c.lat + GRID_SIZE / 2;
-      }
-      return {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [[
-            [sw_lon, sw_lat],
-            [ne_lon, sw_lat],
-            [ne_lon, ne_lat],
-            [sw_lon, ne_lat],
-            [sw_lon, sw_lat],
-          ]],
-        },
-        properties: {
-          val: getFieldValue(c, activeLayer),
-          layer: activeLayer,
-        },
-      };
-    }),
-  }), [gridCells, activeLayer]);
+  const rasterOverlay = useMemo(() => {
+    if (!gridCells.length) return null;
+    return generateSmoothRaster({
+      cells: gridCells,
+      getValue: (c) => getFieldValue(c, activeLayer),
+      layerId: activeLayer,
+      width: 800,
+    });
+  }, [gridCells, activeLayer]);
 
   const toggleLayer = (id) => {
     setActiveLayer(id);
@@ -262,23 +268,19 @@ export default function HeatMapsPage() {
                   <Tooltip direction="top" offset={[0, -16]} className={"custom-tooltip"}>
                     <div>
                       <strong>{z.name}</strong><br />
-                      <span style={{color: riskColor}}>{z.LST_celsius}°C</span> &middot; {z.risk_level}
+                      <span style={{color: riskColor}}>{formatTemp(z.LST_celsius, settings.temperature_unit)}</span> &middot; {z.risk_level}
                     </div>
                   </Tooltip>
                 </Marker>
               );
             })}
-            <GeoJSON
-              key={`${gridCells.length}-${activeLayer}`}
-              data={gridGeoJson}
-              style={feature => ({
-                fillColor: layerColor(feature.properties.val, feature.properties.layer),
-                fillOpacity: activeLayer === "lst" ? 0.9 : 0.85,
-                weight: 0.3,
-                color: "#1a1a2e",
-                opacity: 0.5,
-              })}
-            />
+            {rasterOverlay && (
+              <ImageOverlay
+                url={rasterOverlay.dataUrl}
+                bounds={rasterOverlay.bounds}
+                opacity={0.85}
+              />
+            )}
           </MapContainer>
         </div>
         <aside className={"w-80 h-full p-4 z-10 pointer-events-none"}>
@@ -300,6 +302,7 @@ export default function HeatMapsPage() {
                       {layer.label}
                     </span>
                     <button
+                      data-toggle-layer="true"
                       className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${activeLayer === layer.id ? "bg-primary" : "bg-surface-variant"}`}
                       onClick={() => toggleLayer(layer.id)}
                     >
@@ -322,28 +325,35 @@ export default function HeatMapsPage() {
                 <div className={"flex flex-col gap-2"}>
                   <input
                     type={"date"}
-                    defaultValue={"2024-03-01"}
+                    value={dateFrom}
+                    onChange={e => setDateFrom(e.target.value)}
                     className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
-                    onChange={() => {}}
                   />
                   <div className={"flex items-center gap-2"}>
                     <hr className={"flex-1 border-outline-variant"} />
                     <span className={"text-on-surface-variant text-xs font-medium"}>to</span>
                     <hr className={"flex-1 border-outline-variant"} />
                   </div>
-                  <input
-                    type={"date"}
-                    defaultValue={"2024-05-31"}
-                    className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
-                    onChange={() => {}}
-                  />
+                  <div className={"flex gap-2"}>
+                    <input
+                      type={"date"}
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className={"flex-1 bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm focus:border-primary focus:ring-0 [color-scheme:dark]"}
+                    />
+                    <button onClick={handleRefresh} disabled={loading}
+                      className={"px-3 py-2 bg-primary text-on-primary rounded font-bold text-sm hover:brightness-110 transition-all disabled:opacity-40 flex items-center gap-1"}>
+                      <span className={"material-symbols-outlined text-sm"}>refresh</span>
+                      Apply
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className={"space-y-3"}>
                 <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
                   Satellite Source
                 </label>
-                <select className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm appearance-none focus:border-primary focus:ring-0"}>
+                <select value={satSource} onChange={e => setSatSource(e.target.value)} className={"w-full bg-surface-container border border-outline-variant rounded-lg py-2 px-3 text-body-sm appearance-none focus:border-primary focus:ring-0"}>
                   <option>Landsat 8/9</option>
                   <option>Sentinel-2</option>
                   <option>MODIS Terra</option>
@@ -363,28 +373,98 @@ export default function HeatMapsPage() {
             <h3 className={"font-headline-sm text-secondary"}>Intelligence Panel</h3>
             <p className={"text-on-surface-variant text-[10px] uppercase"}>Data Density: High</p>
           </div>
+          <nav className={"flex border-b border-outline-variant"}>
+            {["details", "insights"].map(tab => {
+              const labels = { details: "Zone Details", insights: "AI Insights" };
+              const active = activeTab === tab;
+              return (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-3 text-sm transition-colors ${
+                    active ? "text-secondary border-b-2 border-secondary font-bold" : "text-on-surface-variant font-medium hover:text-secondary-fixed"
+                  }`}>
+                  {labels[tab]}
+                </button>
+              );
+            })}
+          </nav>
           <div className={"p-4 flex-1 overflow-y-auto space-y-6"}>
-            <div className={"flex gap-4 border-b border-outline-variant"}>
-              <button className={"text-secondary border-b-2 border-secondary font-bold font-data-lg text-sm pb-2"}>Zone Details</button>
-              <button className={"text-on-surface-variant font-medium font-data-lg text-sm pb-2 opacity-50"}>AI Insights</button>
-            </div>
-            <div className={"space-y-4"}>
-              {zones.slice(0, 3).map(z => (
-                <div key={z.zone_id} className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
-                  <div className={"flex justify-between items-center mb-1"}>
-                    <span className={"font-headline-sm text-sm text-secondary"}>{z.name}</span>
-                    <span className={`font-data-sm ${z.risk_level === "CRITICAL" ? "text-error" : "text-primary"}`}>
-                      {z.LST_celsius}°C
-                    </span>
+
+            {activeTab === "details" && (
+              <div className={"space-y-4"}>
+                {zones.slice(0, 3).map(z => (
+                  <div key={z.zone_id} className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
+                    <div className={"flex justify-between items-center mb-1"}>
+                      <span className={"font-headline-sm text-sm text-secondary"}>{z.name}</span>
+                      <span className={`font-data-sm ${z.risk_level === "CRITICAL" ? "text-error" : "text-primary"}`}>
+                        {formatTemp(z.LST_celsius, settings.temperature_unit)}
+                      </span>
+                    </div>
+                    <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
+                      {z.risk_level === "CRITICAL" ? "High albedo surfaces identified. Recommend immediate shade implementation." :
+                       z.risk_level === "HIGH" ? "Elevated thermal load. Consider green infrastructure." :
+                       "Stable thermal profile. Adequate vegetation cover."}
+                    </p>
                   </div>
-                  <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
-                    {z.risk_level === "CRITICAL" ? "High albedo surfaces identified. Recommend immediate shade implementation." :
-                     z.risk_level === "HIGH" ? "Elevated thermal load. Consider green infrastructure." :
-                     "Stable thermal profile. Adequate vegetation cover."}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "insights" && (
+              <div className={"space-y-4"}>
+                {recsLoading ? (
+                  <div className={"text-center text-on-surface-variant py-8 text-sm"}>Loading AI insights...</div>
+                ) : !hottestZone ? (
+                  <div className={"text-center text-on-surface-variant py-8 text-sm"}>No zone data available</div>
+                ) : (
+                  <>
+                    <div className={"p-3 bg-surface-container rounded-lg border border-outline-variant"}>
+                      <div className={"flex justify-between items-center mb-1"}>
+                        <span className={"font-headline-sm text-sm text-secondary"}>{hottestZone.name}</span>
+                        <span className={"font-data-sm text-error"}>{formatTemp(hottestZone.LST_celsius, settings.temperature_unit)}</span>
+                      </div>
+                      <p className={"text-[11px] text-on-surface-variant mt-1"}>
+                        Risk: {recs?.risk_level || hottestZone.risk_level} &middot; Heat Index: {recs?.heat_risk_index || "—"}
+                      </p>
+                    </div>
+                    <div className={"space-y-2"}>
+                      <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                        Top Heat Drivers
+                      </label>
+                      {recs?.top_heat_drivers?.slice(0, 3).map((d, i) => (
+                        <div key={i} className={"flex items-start gap-2 p-2 bg-surface-container rounded-lg border border-outline-variant"}>
+                          <span className={"material-symbols-outlined text-secondary text-sm mt-0.5"}>warning</span>
+                          <div>
+                            <p className={"text-xs font-bold"}>{d.feature.replace(/_/g, " ")}</p>
+                            <p className={"text-[10px] text-on-surface-variant"}>+{d.contribution_C}°C contribution</p>
+                          </div>
+                        </div>
+                      )) || (
+                        <p className={"text-xs text-on-surface-variant"}>Loading driver analysis...</p>
+                      )}
+                    </div>
+                    <div className={"space-y-2"}>
+                      <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
+                        Recommended Actions
+                      </label>
+                      {recs?.recommendations?.slice(0, 3).map(r => (
+                        <div key={r.intervention} className={"p-2 bg-surface-container rounded-lg border border-outline-variant"}>
+                          <div className={"flex justify-between items-center"}>
+                            <span className={"text-xs font-semibold"}>{r.label}</span>
+                            <span className={"text-xs font-bold text-secondary"}>-{Math.abs(r.reduction_C).toFixed(1)}°C</span>
+                          </div>
+                          <p className={"text-[10px] text-on-surface-variant mt-0.5"}>
+                            ₹{(r.cost_INR / 1e6).toFixed(1)}M &middot; {r.efficiency_score?.toFixed(1)} °C/₹M
+                          </p>
+                        </div>
+                      )) || (
+                        <p className={"text-xs text-on-surface-variant"}>Loading recommendations...</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
           </div>
         </aside>
         <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-gutter"}>
@@ -392,17 +472,17 @@ export default function HeatMapsPage() {
             <div className={"flex items-center gap-6"}>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>City Average</span>
-                <span className={"font-data-lg text-on-surface text-xl"}>{cityAvg.toFixed(1)}°C</span>
+                <span className={"font-data-lg text-on-surface text-xl"}>{formatTemp(cityAvg, settings.temperature_unit)}</span>
               </div>
               <div className={"h-8 w-px bg-outline-variant"}></div>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-error uppercase tracking-widest"}>Peak Zone: {hottestZone?.name || "--"}</span>
-                <span className={"font-data-lg text-error text-xl"}>{hottestZone?.LST_celsius || "--"}°C</span>
+                <span className={"font-data-lg text-error text-xl"}>{formatTemp(hottestZone?.LST_celsius, settings.temperature_unit)}</span>
               </div>
               <div className={"h-8 w-px bg-outline-variant"}></div>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-primary uppercase tracking-widest"}>Coolest: {coolestZone?.name || "--"}</span>
-                <span className={"font-data-lg text-primary text-xl"}>{coolestZone?.LST_celsius || "--"}°C</span>
+                <span className={"font-data-lg text-primary text-xl"}>{formatTemp(coolestZone?.LST_celsius, settings.temperature_unit)}</span>
               </div>
             </div>
             <div className={"flex items-center gap-2 ml-8"}>

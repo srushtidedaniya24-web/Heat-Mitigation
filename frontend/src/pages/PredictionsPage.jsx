@@ -4,6 +4,8 @@ import usePageInteractions from "../hooks/usePageInteractions";
 import Sidebar from "../components/Sidebar";
 import { fetchHeatmap, fetchMetrics, classifyZone } from "../services/api";
 import "../styles/pages.css";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp } from "../utils/formatUtils";
 
 const CLASS_COLORS = { COOL: "#1A4FA0", MODERATE: "#0EA882", HOT: "#FF6B35", CRITICAL: "#FF4E1A" };
 
@@ -143,6 +145,8 @@ export default function PredictionsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "predictions");
 
+  const { settings } = useSettings();
+
   const [zones, setZones] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [selectedZoneId, setSelectedZoneId] = useState("all");
@@ -171,8 +175,8 @@ export default function PredictionsPage() {
   const max24h = zones.length ? Math.max(...zones.map(z => z.LST_celsius)) : 52.4;
   const avg7d = zones.length ? zones.reduce((s, z) => s + z.LST_celsius, 0) / zones.length : 49.8;
   const avg30d = zones.length ? avg7d - 3 : 46.1;
-  const confidence = metrics?.test_metrics?.r2 ? (metrics.test_metrics.r2 * 100).toFixed(1) : "94.2";
-  const mae = metrics?.test_metrics?.mae ? `\u00B1${metrics.test_metrics.mae}\u00B0C` : "\u00B11.8\u00B0C";
+  const confidence = metrics?.test?.r2 ? (metrics.test.r2 * 100).toFixed(1) : "94.2";
+  const mae = metrics?.test?.mae ? `\u00B1${metrics.test.mae}\u00B0C` : "\u00B11.8\u00B0C";
   const heatwaveProb = max24h > 50 ? Math.min(95, 60 + (max24h - 50) * 5) : 45;
 
   const handleClassify = useCallback(async () => {
@@ -235,7 +239,7 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-primary"}>schedule</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 24h</span>
               </div>
-              <p className={"font-display-md text-display-md text-error mb-1"}>{max24h.toFixed(1)}&deg;C</p>
+              <p className={"font-display-md text-display-md text-error mb-1"}>{formatTemp(max24h, settings.temperature_unit)}</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Peak across all zones today</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-error rounded"} style={{width: `${Math.min(100, max24h)}%`}}></div>
@@ -246,7 +250,7 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-tertiary"}>date_range</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 7 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-tertiary mb-1"}>{avg7d.toFixed(1)}&deg;C</p>
+              <p className={"font-display-md text-display-md text-tertiary mb-1"}>{formatTemp(avg7d, settings.temperature_unit)}</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Average high across all zones</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-tertiary rounded"} style={{width: `${Math.min(100, avg7d)}%`}}></div>
@@ -257,7 +261,7 @@ export default function PredictionsPage() {
                 <span className={"material-symbols-outlined text-primary-container"}>calendar_month</span>
                 <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>Next 30 Days</span>
               </div>
-              <p className={"font-display-md text-display-md text-primary-container mb-1"}>{avg30d.toFixed(1)}&deg;C</p>
+              <p className={"font-display-md text-display-md text-primary-container mb-1"}>{formatTemp(avg30d, settings.temperature_unit)}</p>
               <p className={"font-body-sm text-body-sm text-on-surface-variant"}>Projected monthly average</p>
               <div className={"mt-3 h-1 w-full bg-surface-variant rounded overflow-hidden"}>
                 <div className={"h-full bg-primary-container rounded"} style={{width: `${Math.min(100, avg30d)}%`}}></div>
@@ -292,7 +296,7 @@ export default function PredictionsPage() {
                   const barColor = z.LST_celsius > 50 ? "#ef4444" : z.LST_celsius > 45 ? "#f97316" : "#22d3ee";
                   return (
                     <div key={z.zone_id} className={"flex-1 flex flex-col items-center gap-1 group self-stretch justify-end"}>
-                      <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{z.LST_celsius}&deg;</span>
+                      <span className={"font-data-sm text-[9px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"}>{formatTemp(z.LST_celsius, settings.temperature_unit)}</span>
                       <div
                         className={"w-full rounded-t cursor-pointer transition-all duration-300 hover:brightness-110"}
                         style={{ height: `${pct}%`, backgroundColor: barColor }}

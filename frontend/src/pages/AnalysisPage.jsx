@@ -4,10 +4,13 @@ import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../services/api";
 import "../styles/pages.css";
+import { useSettings } from "../contexts/SettingsContext";
+import { formatTemp } from "../utils/formatUtils";
 
 export default function AnalysisPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "analysis");
+  const { settings } = useSettings();
 
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -336,7 +339,7 @@ export default function AnalysisPage() {
                       <div className={"grid grid-cols-2 gap-2 text-xs"}>
                         <div className={"bg-surface-container rounded p-2"}>
                           <span className={"text-on-surface-variant"}>LST</span>
-                          <p className={"font-bold text-secondary"}>{selectedZone.LST_celsius}°C</p>
+                          <p className={"font-bold text-secondary"}>{formatTemp(selectedZone.LST_celsius, settings.temperature_unit)}</p>
                         </div>
                         <div className={"bg-surface-container rounded p-2"}>
                           <span className={"text-on-surface-variant"}>Population</span>
@@ -474,11 +477,11 @@ export default function AnalysisPage() {
                     <p className={"text-xs text-on-surface-variant uppercase tracking-widest"}>Results</p>
                     <div className={"flex justify-between items-center"}>
                       <span className={"text-sm"}>Before</span>
-                      <span className={"font-bold text-lg"}>{simResult.temp_before_C}°C</span>
+                      <span className={"font-bold text-lg"}>{formatTemp(simResult.temp_before_C, settings.temperature_unit)}</span>
                     </div>
                     <div className={"flex justify-between items-center"}>
                       <span className={"text-sm"}>After</span>
-                      <span className={"font-bold text-lg text-secondary"}>{simResult.temp_after_C}°C</span>
+                      <span className={"font-bold text-lg text-secondary"}>{formatTemp(simResult.temp_after_C, settings.temperature_unit)}</span>
                     </div>
                     <div className={"flex justify-between items-center pt-2 border-t border-outline-variant"}>
                       <span className={"text-sm"}>Reduction</span>
@@ -496,7 +499,7 @@ export default function AnalysisPage() {
                     </div>
                     <div className={"flex justify-between items-center"}>
                       <span className={"text-sm"}>Risk Change</span>
-                      <span className={"font-bold text-xs " + (simResult.risk_after === "COOL" ? "text-secondary" : "text-warning")}>
+                      <span className={"font-bold text-xs " + ({LOW: "text-secondary", MEDIUM: "text-warning", HIGH: "text-error", CRITICAL: "text-error"}[simResult.risk_after] || "text-warning")}>
                         {simResult.risk_before} → {simResult.risk_after}
                       </span>
                     </div>

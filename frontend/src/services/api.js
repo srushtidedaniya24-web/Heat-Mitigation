@@ -9,7 +9,12 @@ async function get(path) {
   return res.json();
 }
 
-export function fetchHeatmap()       { return get("/heatmap?city=mumbai"); }
+export function fetchHeatmap(dateFrom, dateTo) {
+  let path = "/heatmap?city=mumbai";
+  if (dateFrom) path += `&date_from=${encodeURIComponent(dateFrom)}`;
+  if (dateTo)   path += `&date_to=${encodeURIComponent(dateTo)}`;
+  return get(path);
+}
 export function fetchHotspots()      { return get("/hotspots?threshold=50&top_n=5"); }
 export function fetchZones()         { return get("/zones"); }
 export function fetchMetrics()       { return get("/metrics"); }
@@ -41,4 +46,40 @@ export async function classifyTile(zoneId, tileArray) {
 
 export function classifyZone(zoneId) {
   return get(`/classify/zone/${zoneId}`);
+}
+
+export function fetchAlerts() {
+  return get("/alerts");
+}
+
+export async function resolveAlert(zoneId) {
+  const res = await fetch(`${BASE}/alerts/resolve/${zoneId}`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export function fetchReports(type) {
+  let path = "/reports";
+  if (type) path += `?type=${type}`;
+  return get(path);
+}
+
+export async function generateReport(name, type) {
+  const res = await fetch(`${BASE}/reports/generate?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export function fetchSettings() {
+  return get("/settings");
+}
+
+export async function saveSettings(data) {
+  const res = await fetch(`${BASE}/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
