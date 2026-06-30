@@ -74,9 +74,9 @@ function getSmoothColor(val, layerId, minVal, maxVal) {
   const range = maxVal - minVal || 1;
   const t = (val - minVal) / range;
   const palette = PALETTES[layerId];
-  if (!palette) return [0, 13, 38, 200];
+  if (!palette) return [0, 13, 38, 120];
   const [r, g, b] = samplePalette(palette, t);
-  return [r, g, b, 200];
+  return [r, g, b, 180];
 }
 
 const WATER_COLOR = [0, 13, 38, 0];
@@ -92,9 +92,9 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
 
   cells.forEach((c) => {
     if (!c.bbox) return;
-    const cx = (c.bbox[0] + c.bbox[2]) / 2;
-    const cy = (c.bbox[1] + c.bbox[3]) / 2;
-    const key = `${cx.toFixed(6)},${cy.toFixed(6)}`;
+    const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
+    const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
+    const key = `${cx},${cy}`;
     if (!centerMap.has(key)) {
       centerMap.set(key, { lon: cx, lat: cy });
     }
@@ -138,8 +138,8 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
 
     cells.forEach((c) => {
       if (!c.bbox) return;
-      const cx = (c.bbox[0] + c.bbox[2]) / 2;
-      const cy = (c.bbox[1] + c.bbox[3]) / 2;
+      const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
+      const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
       const ix = lons.indexOf(cx);
       const iy = lats.indexOf(cy);
       if (ix !== -1 && iy !== -1) {
@@ -159,8 +159,8 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
     const valueGrid = Array.from({ length: ny }, () => new Float32Array(nx).fill(NaN));
     cells.forEach((c) => {
       if (!c.bbox) return;
-      const cx = (c.bbox[0] + c.bbox[2]) / 2;
-      const cy = (c.bbox[1] + c.bbox[3]) / 2;
+      const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
+      const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
       const ix = lons.indexOf(cx);
       const iy = lats.indexOf(cy);
       if (ix !== -1 && iy !== -1) {
@@ -190,10 +190,10 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
 
         const gx = (lon - lons[0]) / lonStep;
         const gy = (lat - lats[0]) / latStep;
-        const ix = Math.floor(gx);
-        const iy = Math.floor(gy);
-        const fx = gx - ix;
-        const fy = gy - iy;
+        const ix = Math.max(0, Math.min(nx - 2, Math.floor(gx)));
+        const iy = Math.max(0, Math.min(ny - 2, Math.floor(gy)));
+        const fx = Math.max(0, Math.min(1, gx - Math.floor(gx)));
+        const fy = Math.max(0, Math.min(1, gy - Math.floor(gy)));
 
         const v00 = valueGrid[iy]?.[ix];
         const v10 = valueGrid[iy]?.[ix + 1];

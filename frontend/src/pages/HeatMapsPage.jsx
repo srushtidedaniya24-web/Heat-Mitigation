@@ -159,7 +159,7 @@ export default function HeatMapsPage() {
 
   const loadData = useCallback((f, t) => {
     setLoading(true);
-    Promise.all([fetchHeatmap(f, t), fetchGridHeatmap(2)])
+    Promise.all([fetchHeatmap(f, t), fetchGridHeatmap(1)])
       .then(([heatData, gridData]) => {
         setZones(heatData.zones || []);
         setGridCells(gridData.cells || []);
@@ -206,7 +206,7 @@ export default function HeatMapsPage() {
       cells: gridCells,
       getValue: (c) => getFieldValue(c, activeLayer),
       layerId: activeLayer,
-      width: 800,
+      width: 1600,
     });
   }, [gridCells, activeLayer]);
 
@@ -244,11 +244,11 @@ export default function HeatMapsPage() {
             zoom={12}
             className={"w-full h-full"}
             zoomControl={true}
-            style={{ background: "#000d26" }}
+            style={{ background: "#1a1a2e" }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.esri.com/">ESRI</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             />
             {zones.map(z => {
               const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
@@ -278,7 +278,7 @@ export default function HeatMapsPage() {
               <ImageOverlay
                 url={rasterOverlay.dataUrl}
                 bounds={rasterOverlay.bounds}
-                opacity={0.85}
+                opacity={0.7}
               />
             )}
           </MapContainer>
