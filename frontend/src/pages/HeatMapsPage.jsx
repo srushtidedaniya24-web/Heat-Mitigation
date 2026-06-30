@@ -159,12 +159,19 @@ export default function HeatMapsPage() {
 
   const loadData = useCallback((f, t) => {
     setLoading(true);
-    Promise.all([fetchHeatmap(f, t), fetchGridHeatmap(2)])
-      .then(([heatData, gridData]) => {
-        setZones(heatData.zones || []);
-        setGridCells(gridData.cells || []);
+    Promise.allSettled([fetchHeatmap(f, t), fetchGridHeatmap(2)])
+      .then(([heatResult, gridResult]) => {
+        if (heatResult.status === "fulfilled") {
+          setZones(heatResult.value.zones || []);
+        } else {
+          console.error("Heatmap fetch failed:", heatResult.reason);
+        }
+        if (gridResult.status === "fulfilled") {
+          setGridCells(gridResult.value.cells || []);
+        } else {
+          console.error("Grid heatmap fetch failed:", gridResult.reason);
+        }
       })
-      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
