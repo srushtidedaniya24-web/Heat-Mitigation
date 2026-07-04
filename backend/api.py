@@ -495,26 +495,22 @@ def _classify_landcover(ndvi, builtup, bldg_h):
 def _generate_synthetic_grid(step: int) -> list[dict]:
     """Generate synthetic grid cells covering the Mumbai area using ZONE_DATA."""
     cells = []
-    base_lons = set()
-    base_lats = set()
-    for z in ZONE_DATA.values():
-        base_lons.add(round(z["lon"], 3))
-        base_lats.add(round(z["lat"], 3))
-    base_lons = sorted(base_lons)
-    base_lats = sorted(base_lats)
+    base_lons = [z["lon"] for z in ZONE_DATA.values()]
+    base_lats = [z["lat"] for z in ZONE_DATA.values()]
 
-    # Expand to a denser grid around the zone locations
-    grid_lons = set()
-    grid_lats = set()
-    for lon in base_lons:
-        for offset in range(-3, 4):
-            grid_lons.add(round(lon + offset * GRID_SIZE, 6))
-    for lat in base_lats:
-        for offset in range(-3, 4):
-            grid_lats.add(round(lat + offset * GRID_SIZE, 6))
+    min_lon = min(base_lons) - 3 * GRID_SIZE
+    max_lon = max(base_lons) + 3 * GRID_SIZE
+    min_lat = min(base_lats) - 3 * GRID_SIZE
+    max_lat = max(base_lats) + 3 * GRID_SIZE
 
-    sorted_lons = sorted(grid_lons)[::step]
-    sorted_lats = sorted(grid_lats)[::step]
+    num_lons = int(round((max_lon - min_lon) / GRID_SIZE)) + 1
+    num_lats = int(round((max_lat - min_lat) / GRID_SIZE)) + 1
+
+    sorted_lons = [round(min_lon + i * GRID_SIZE, 6) for i in range(num_lons)]
+    sorted_lats = [round(min_lat + i * GRID_SIZE, 6) for i in range(num_lats)]
+
+    sorted_lons = sorted_lons[::step]
+    sorted_lats = sorted_lats[::step]
     def nearest_zone(lon, lat):
         best = None
         best_dist = float("inf")

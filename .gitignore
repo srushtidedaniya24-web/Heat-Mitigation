@@ -22,7 +22,8 @@ dist/
 !.env.example
 
 # Generated data / models / outputs
-backend/data/
+backend/data/*
+!backend/data/features_raw.csv
 backend/cache/
 
 backend/outputs/
