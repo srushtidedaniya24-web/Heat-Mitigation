@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 GEE_PROJECT = "urban-heat-mitigation-500012"
 CITY_NAME   = "Mumbai"
-BBOX        = [72.77, 18.89, 72.99, 19.14]
+BBOX        = [72.77, 18.89, 73.14, 19.35]
 GRID_SIZE   = 0.005
 START_DATE  = "2024-03-01"
 END_DATE    = "2024-05-31"
@@ -193,7 +193,9 @@ def fetch_osm_features(grid_gdf):
 
         # ── Road density via overlay ──
         road_clipped = gpd.overlay(grid_3857[["cell_id", "geometry"]],
-                                   roads_3857, how="intersection")
+                                   roads_3857, how="intersection",
+                                   keep_geom_type=False)
+        road_clipped["road_len_m"] = road_clipped.geometry.length
         road_per_cell = (road_clipped.groupby("cell_id")["road_len_m"]
                          .sum().rename("road_len_total").reset_index())
         # ── Building coverage via overlay ──
@@ -343,6 +345,11 @@ def assign_neighborhoods(df):
     lat_col = "lat" if "lat" in df.columns else "centroid_lat"
     def get_zone(row):
         lon, lat = row[lon_col], row[lat_col]
+        if lon > 72.99 and lat > 19.10:                     return "Airoli"
+        elif lon > 73.04 and lat > 19.02:                    return "Kharghar"
+        elif lon > 72.99 and lat > 19.02:                    return "Vashi"
+        elif lon > 72.99 and lat > 18.98:                    return "Nerul"
+        elif lon > 73.06 and lat > 18.94:                    return "Panvel"
         if lon < lon_mid - 0.03 and lat > lat_mid:          return "Andheri"
         elif lon > lon_mid + 0.03 and lat > lat_mid:        return "Powai"
         elif lon > lon_mid + 0.03 and lat < lat_mid:        return "Chembur"
@@ -400,7 +407,10 @@ def add_synthetic_fallback(df):
             print(f"  [SYNTHETIC] {col}")
     # Use OSM data if available, else synthetic substitutes
     if "osm_road_density" in df.columns:
-        df["road_density"] = df["osm_road_density"].fillna(df["road_density"])
+        max_road = df["osm_road_density"].max()
+        scale = max_road if max_road > 0 else 0.06
+        df["osm_road_density_scaled"] = (df["osm_road_density"] / scale).clip(0, 1).round(4)
+        df["road_density"] = df["osm_road_density_scaled"].fillna(df.get("road_density", 0))
     if "osm_bldg_coverage" in df.columns:
         df["bldg_height_idx"] = df["osm_bldg_coverage"].fillna(df["bldg_height_idx"])
     if "osm_green_coverage" in df.columns:
@@ -421,29 +431,42 @@ def run_pipeline():
     print("  THERMACITY — Multi-Source Data Pipeline")
     print("=" * 50 + "\n")
 
-    import ee
-    ee.Initialize(project=GEE_PROJECT)
-    print(f"  GEE initialized: project={GEE_PROJECT}")
+    try:
+        import ee
+        ee.Initialize(project=GEE_PROJECT)
+        print(f"  GEE initialized: project={GEE_PROJECT}")
+        gee_available = True
+    except Exception as e:
+        print(f"  GEE not available ({e}) — will use synthetic fallbacks for satellite data")
+        print("  To use real satellite data, run:  earthengine authenticate")
+        gee_available = False
 
     grid_gdf = create_city_grid(BBOX, GRID_SIZE)
 
-    # — Landsat 8/9 (Source 1) + Sentinel-2 (Source 2) + WorldCover —
-    lst_img = fetch_landsat_lst(BBOX, START_DATE, END_DATE)
-    s2_img, lc_img = fetch_sentinel2(BBOX, START_DATE, END_DATE)
-    builtup_img, esa_lc = fetch_builtup(BBOX)
+    df = grid_gdf.copy()
+    df["lon"] = df["centroid_lon"]
+    df["lat"] = df["centroid_lat"]
 
-    gee_df = sample_gee(grid_gdf, lst_img, s2_img, builtup_img)
+    if gee_available:
+        # — Landsat 8/9 (Source 1) + Sentinel-2 (Source 2) + WorldCover —
+        lst_img = fetch_landsat_lst(BBOX, START_DATE, END_DATE)
+        s2_img, lc_img = fetch_sentinel2(BBOX, START_DATE, END_DATE)
+        builtup_img, esa_lc = fetch_builtup(BBOX)
 
-    if gee_df is not None:
-        df = gee_df
-        if esa_lc is not None:
-            lc_sampled = sample_gee(grid_gdf, esa_lc)
-            if lc_sampled is not None and "esa_landcover" in lc_sampled.columns:
-                df["esa_landcover"] = lc_sampled["esa_landcover"]
+        gee_df = sample_gee(grid_gdf, lst_img, s2_img, builtup_img)
+
+        if gee_df is not None:
+            df = gee_df
+            if esa_lc is not None:
+                lc_sampled = sample_gee(grid_gdf, esa_lc)
+                if lc_sampled is not None and "esa_landcover" in lc_sampled.columns:
+                    df["esa_landcover"] = lc_sampled["esa_landcover"]
+        else:
+            df = grid_gdf.copy()
+            df["lon"] = df["centroid_lon"]
+            df["lat"] = df["centroid_lat"]
     else:
-        df = grid_gdf.copy()
-        df["lon"] = df["centroid_lon"]
-        df["lat"] = df["centroid_lat"]
+        print("  Skipping GEE data sources, using synthetic fallbacks for satellite-derived features")
 
     # — OpenStreetMap (Source 3) —
     osm_df = fetch_osm_features(grid_gdf)
@@ -457,8 +480,8 @@ def run_pipeline():
         wc = [c for c in weather_df.columns if c != "cell_id"]
         df = df.merge(weather_df[["cell_id"] + wc], on="cell_id", how="left")
 
-    # — Population via WorldPop (Source 4b) —
-    pop_df = fetch_population(grid_gdf)
+    # — Population via WorldPop (Source 4b) — requires GEE
+    pop_df = fetch_population(grid_gdf) if gee_available else None
     if pop_df is not None:
         df = df.merge(pop_df, on="cell_id", how="left")
 

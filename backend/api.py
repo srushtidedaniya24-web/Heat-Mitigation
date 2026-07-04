@@ -157,6 +157,116 @@ ZONE_DATA = {
         },
         "population": 8765, "area_sqkm": 8.1,
     },
+    "thane_station": {
+        "name": "Thane Station", "lat": 19.194, "lon": 72.976,
+        "features": {
+            "NDVI": 0.06, "albedo": 0.09, "builtup": 0.95,
+            "road_density": 0.80, "impervious_pct": 0.88,
+            "heat_load_idx": 0.75, "wind_obstruction": 0.70,
+            "bldg_height_idx": 0.60, "pop_density": 35000,
+            "dist_to_water": 2500, "humidity": 64.0
+        },
+        "population": 350000, "area_sqkm": 4.2,
+    },
+    "majiwada": {
+        "name": "Majiwada", "lat": 19.223, "lon": 72.982,
+        "features": {
+            "NDVI": 0.04, "albedo": 0.07, "builtup": 0.96,
+            "road_density": 0.85, "impervious_pct": 0.90,
+            "heat_load_idx": 0.80, "wind_obstruction": 0.72,
+            "bldg_height_idx": 0.62, "pop_density": 18000,
+            "dist_to_water": 3000, "humidity": 63.0
+        },
+        "population": 180000, "area_sqkm": 2.8,
+    },
+    "kalwa": {
+        "name": "Kalwa", "lat": 19.172, "lon": 72.983,
+        "features": {
+            "NDVI": 0.05, "albedo": 0.08, "builtup": 0.94,
+            "road_density": 0.78, "impervious_pct": 0.87,
+            "heat_load_idx": 0.78, "wind_obstruction": 0.68,
+            "bldg_height_idx": 0.58, "pop_density": 38000,
+            "dist_to_water": 2200, "humidity": 64.0
+        },
+        "population": 380000, "area_sqkm": 3.9,
+    },
+    "wagle_estate": {
+        "name": "Wagle Estate", "lat": 19.207, "lon": 72.993,
+        "features": {
+            "NDVI": 0.07, "albedo": 0.10, "builtup": 0.90,
+            "road_density": 0.72, "impervious_pct": 0.82,
+            "heat_load_idx": 0.70, "wind_obstruction": 0.65,
+            "bldg_height_idx": 0.55, "pop_density": 22000,
+            "dist_to_water": 2800, "humidity": 65.0
+        },
+        "population": 220000, "area_sqkm": 5.1,
+    },
+    "airoli": {
+        "name": "Airoli", "lat": 19.150, "lon": 73.000,
+        "features": {
+            "NDVI": 0.18, "albedo": 0.14, "builtup": 0.78,
+            "road_density": 0.55, "impervious_pct": 0.60,
+            "heat_load_idx": 0.48, "wind_obstruction": 0.42,
+            "bldg_height_idx": 0.38, "pop_density": 18000,
+            "dist_to_water": 2000, "humidity": 66.0
+        },
+        "population": 175000, "area_sqkm": 6.8,
+    },
+    "vashi": {
+        "name": "Vashi", "lat": 19.077, "lon": 73.010,
+        "features": {
+            "NDVI": 0.14, "albedo": 0.13, "builtup": 0.82,
+            "road_density": 0.62, "impervious_pct": 0.68,
+            "heat_load_idx": 0.55, "wind_obstruction": 0.48,
+            "bldg_height_idx": 0.45, "pop_density": 25000,
+            "dist_to_water": 1500, "humidity": 66.0
+        },
+        "population": 230000, "area_sqkm": 5.5,
+    },
+    "nerul": {
+        "name": "Nerul", "lat": 19.033, "lon": 73.050,
+        "features": {
+            "NDVI": 0.20, "albedo": 0.16, "builtup": 0.72,
+            "road_density": 0.50, "impervious_pct": 0.55,
+            "heat_load_idx": 0.42, "wind_obstruction": 0.38,
+            "bldg_height_idx": 0.35, "pop_density": 20000,
+            "dist_to_water": 2500, "humidity": 67.0
+        },
+        "population": 195000, "area_sqkm": 7.2,
+    },
+    "cbd_belapur": {
+        "name": "CBD Belapur", "lat": 19.015, "lon": 73.042,
+        "features": {
+            "NDVI": 0.22, "albedo": 0.17, "builtup": 0.70,
+            "road_density": 0.48, "impervious_pct": 0.52,
+            "heat_load_idx": 0.40, "wind_obstruction": 0.35,
+            "bldg_height_idx": 0.32, "pop_density": 16000,
+            "dist_to_water": 3000, "humidity": 67.0
+        },
+        "population": 150000, "area_sqkm": 8.5,
+    },
+    "kharghar": {
+        "name": "Kharghar", "lat": 19.045, "lon": 73.070,
+        "features": {
+            "NDVI": 0.25, "albedo": 0.18, "builtup": 0.65,
+            "road_density": 0.45, "impervious_pct": 0.50,
+            "heat_load_idx": 0.38, "wind_obstruction": 0.32,
+            "bldg_height_idx": 0.30, "pop_density": 14000,
+            "dist_to_water": 3500, "humidity": 68.0
+        },
+        "population": 180000, "area_sqkm": 9.0,
+    },
+    "panvel": {
+        "name": "Panvel", "lat": 18.989, "lon": 73.115,
+        "features": {
+            "NDVI": 0.28, "albedo": 0.20, "builtup": 0.55,
+            "road_density": 0.38, "impervious_pct": 0.42,
+            "heat_load_idx": 0.32, "wind_obstruction": 0.28,
+            "bldg_height_idx": 0.25, "pop_density": 12000,
+            "dist_to_water": 5000, "humidity": 68.0
+        },
+        "population": 130000, "area_sqkm": 12.0,
+    },
 }
 
 INTERVENTION_EFFECTS = {
@@ -206,10 +316,12 @@ def _get_alert_thresholds() -> dict:
         s = _settings_store
     except NameError:
         return HEAT_RISK_THRESHOLDS.copy()
+    warning = float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["MEDIUM"]))
+    critical = float(s.get("alert_critical_temp", HEAT_RISK_THRESHOLDS["CRITICAL"]))
     return {
-        "CRITICAL": float(s.get("alert_critical_temp", HEAT_RISK_THRESHOLDS["CRITICAL"])),
-        "HIGH":     float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["HIGH"])),
-        "MEDIUM":   float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["MEDIUM"])) - 4,
+        "CRITICAL": max(critical, warning + 3),
+        "HIGH":     warning + 1.5,
+        "MEDIUM":   warning,
         "LOW":      0.0,
     }
 

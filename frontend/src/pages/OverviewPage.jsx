@@ -12,8 +12,8 @@ import "../styles/pages.css";
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
 export default function OverviewPage() {
@@ -41,8 +41,9 @@ export default function OverviewPage() {
   useEffect(() => {
     fetchHeatmap()
       .then(data => {
-        setZones(data.zones || []);
-        if (data.zones?.length) setSelectedZone(data.zones[0]);
+        const zonesData = data.zones || [];
+        setZones(zonesData);
+        if (zonesData.length) setSelectedZone(zonesData[0]);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -118,8 +119,8 @@ export default function OverviewPage() {
         <Sidebar />
         <main className={"relative flex-1 bg-surface-container-lowest overflow-hidden"}>
           <MapContainer
-            center={[19.015, 72.865]}
-            zoom={12}
+            center={[19.08, 72.99]}
+            zoom={11}
             className={"w-full h-full"}
             zoomControl={true}
             style={{ background: "#000d26" }}
@@ -130,7 +131,7 @@ export default function OverviewPage() {
             />
             {zones.map(z => {
               const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
-                                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
+                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
               const isHottest = zones.length && z.LST_celsius === Math.max(...zones.map(x => x.LST_celsius));
               const unit = settings.temperature_unit;
               const ft = (v) => formatTemp(v, unit);
@@ -197,18 +198,18 @@ export default function OverviewPage() {
           <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-surface-container-low/95 backdrop-blur border border-outline-variant p-4 rounded-xl shadow-2xl z-[1000]"}>
             <div className={"flex items-center justify-between mb-3 px-2"}>
               <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                {formatTime(new Date(new Date().setHours(8,0,0,0)).toISOString(), settings.time_format)}
+                {formatTime(new Date(new Date().setHours(8, 0, 0, 0)).toISOString(), settings.time_format)}
               </span>
               <span className={"font-data-sm text-data-sm text-primary font-bold"}>
                 {formatTime(now.toISOString(), settings.time_format)} (NOW)
               </span>
               <span className={"font-data-sm text-data-sm text-on-surface-variant"}>
-                {formatTime(new Date(new Date().setHours(22,0,0,0)).toISOString(), settings.time_format)}
+                {formatTime(new Date(new Date().setHours(22, 0, 0, 0)).toISOString(), settings.time_format)}
               </span>
             </div>
             <div className={"relative h-2 bg-surface-variant rounded-full overflow-hidden"}>
-              <div className={"absolute top-0 left-0 h-full w-full"} style={{width: `${dayProgress}%`, background: "linear-gradient(90deg, #00d4b4 0%, #f97316 50%, #ef4444 100%)"}}></div>
-              <div className={"absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-primary cursor-pointer"} style={{left: `${dayProgress}%`}}></div>
+              <div className={"absolute top-0 left-0 h-full w-full"} style={{ width: `${dayProgress}%`, background: "linear-gradient(90deg, #00d4b4 0%, #f97316 50%, #ef4444 100%)" }}></div>
+              <div className={"absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg border-2 border-primary cursor-pointer"} style={{ left: `${dayProgress}%` }}></div>
             </div>
           </div>
         </main>
@@ -243,7 +244,7 @@ export default function OverviewPage() {
                 </span>
               </div>
               <div className={"h-2 w-full bg-surface-variant rounded-full overflow-hidden"}>
-                <div className={"h-full bg-error"} style={{width: `${(selectedZone?.heat_risk_index ?? 0) * 10}%`}}></div>
+                <div className={"h-full bg-error"} style={{ width: `${(selectedZone?.heat_risk_index ?? 0) * 10}%` }}></div>
               </div>
               <div className={"flex gap-2 pt-2"}>
                 <span className={"px-2 py-0.5 bg-error/10 border border-error/40 text-error text-[10px] font-bold rounded"}>
@@ -304,7 +305,7 @@ export default function OverviewPage() {
                             {d.feature.replace(/_/g, " ")}
                           </span>
                           <div className={"flex-1 h-3 bg-error/20 rounded overflow-hidden"}>
-                            <div className={"h-full bg-error"} style={{width: `${(absVal / maxVal) * 100}%`}}></div>
+                            <div className={"h-full bg-error"} style={{ width: `${(absVal / maxVal) * 100}%` }}></div>
                           </div>
                         </div>
                       );

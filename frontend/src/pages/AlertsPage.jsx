@@ -44,7 +44,7 @@ export default function AlertsPage() {
     try {
       const data = await fetchAlerts();
       setAlerts(data.alerts || []);
-      setMeta({ total: data.total || 0, critical: data.critical || 0, high: data.high || 0, medium: data.medium || 0 });
+      setMeta({ total: data.total || 0, critical: data.critical || 0, high: data.high || 0, medium: data.medium || 0, generated: data.generated });
       setError(null);
     } catch (e) {
       setError(e.message);
