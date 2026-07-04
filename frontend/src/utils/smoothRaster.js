@@ -6,6 +6,72 @@ function lerpColor(c1, c2, t) {
   ];
 }
 
+// Separable Gaussian blur on the grid to remove blocky cell-boundary artifacts.
+// Each output cell is a Gaussian-weighted average of its neighborhood.
+// NaN cells are skipped and weights are renormalized.
+function gaussianBlurGrid(grid, nx, ny, sigma) {
+  const radius = Math.ceil(sigma * 3);
+  const kernel = [];
+  for (let i = -radius; i <= radius; i++) {
+    kernel.push(Math.exp(-(i * i) / (2 * sigma * sigma)));
+  }
+  // Horizontal pass
+  const temp = Array.from({ length: ny }, () => new Float32Array(nx));
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < nx; x++) {
+      let sum = 0, wsum = 0;
+      for (let k = 0; k < kernel.length; k++) {
+        const sx = x + k - radius;
+        if (sx >= 0 && sx < nx) {
+          const v = grid[y][sx];
+          if (!isNaN(v)) { sum += v * kernel[k]; wsum += kernel[k]; }
+        }
+      }
+      temp[y][x] = wsum > 0 ? sum / wsum : NaN;
+    }
+  }
+  // Vertical pass
+  const result = Array.from({ length: ny }, () => new Float32Array(nx));
+  for (let x = 0; x < nx; x++) {
+    for (let y = 0; y < ny; y++) {
+      let sum = 0, wsum = 0;
+      for (let k = 0; k < kernel.length; k++) {
+        const sy = y + k - radius;
+        if (sy >= 0 && sy < ny) {
+          const v = temp[sy][x];
+          if (!isNaN(v)) { sum += v * kernel[k]; wsum += kernel[k]; }
+        }
+      }
+      result[y][x] = wsum > 0 ? sum / wsum : NaN;
+    }
+  }
+  return result;
+}
+
+// Bilinear with graceful NaN fallback — weights only valid neighbors
+function sampleGrid(valueGrid, nx, ny, gx, gy) {
+  const ix = Math.max(0, Math.min(nx - 2, Math.floor(gx)));
+  const iy = Math.max(0, Math.min(ny - 2, Math.floor(gy)));
+  const fx = Math.max(0, Math.min(1, gx - ix));
+  const fy = Math.max(0, Math.min(1, gy - iy));
+
+  const v00 = valueGrid[iy][ix];
+  const v10 = valueGrid[iy][ix + 1];
+  const v01 = valueGrid[iy + 1][ix];
+  const v11 = valueGrid[iy + 1][ix + 1];
+
+  let sum = 0, wsum = 0;
+  const ws = [(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy];
+  const vs = [v00, v10, v01, v11];
+  for (let k = 0; k < 4; k++) {
+    if (vs[k] != null && !isNaN(vs[k])) {
+      sum += vs[k] * ws[k];
+      wsum += ws[k];
+    }
+  }
+  return wsum > 0 ? sum / wsum : NaN;
+}
+
 const PALETTES = {
   lst: [
     [0.00, [0, 13, 38]],
@@ -81,7 +147,7 @@ function getSmoothColor(val, layerId, minVal, maxVal) {
 
 const WATER_COLOR = [0, 13, 38, 0];
 
-export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) {
+export function generateSmoothRaster({ cells, getValue, layerId, width = 3600 }) {
   if (!cells || cells.length === 0) return null;
 
   const isCategorical = CATEGORICAL_LAYERS.has(layerId);
@@ -168,10 +234,15 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
       }
     });
 
+    // Gaussian pre-filter removes blocky grid artifacts by diffusing each
+    // cell's value into its neighbors with a smooth falloff — creating
+    // organic heat distribution before bilinear rendering.
+    const smoothGrid = gaussianBlurGrid(valueGrid, nx, ny, 0.7);
+
     let minVal = Infinity, maxVal = -Infinity;
     for (let iy = 0; iy < ny; iy++) {
       for (let ix = 0; ix < nx; ix++) {
-        const v = valueGrid[iy][ix];
+        const v = smoothGrid[iy][ix];
         if (!isNaN(v)) {
           if (v < minVal) minVal = v;
           if (v > maxVal) maxVal = v;
@@ -190,28 +261,8 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 800 }) 
 
         const gx = (lon - lons[0]) / lonStep;
         const gy = (lat - lats[0]) / latStep;
-        const ix = Math.max(0, Math.min(nx - 2, Math.floor(gx)));
-        const iy = Math.max(0, Math.min(ny - 2, Math.floor(gy)));
-        const fx = Math.max(0, Math.min(1, gx - Math.floor(gx)));
-        const fy = Math.max(0, Math.min(1, gy - Math.floor(gy)));
 
-        const v00 = valueGrid[iy]?.[ix];
-        const v10 = valueGrid[iy]?.[ix + 1];
-        const v01 = valueGrid[iy + 1]?.[ix];
-        const v11 = valueGrid[iy + 1]?.[ix + 1];
-
-        const has00 = !isNaN(v00);
-        const has10 = !isNaN(v10);
-        const has01 = !isNaN(v01);
-        const has11 = !isNaN(v11);
-
-        let val;
-        if (has00 && has10 && has01 && has11) {
-          val = (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy;
-        } else {
-          const nearest = [v00, v10, v01, v11].find((v) => !isNaN(v));
-          val = nearest != null ? nearest : NaN;
-        }
+        const val = sampleGrid(smoothGrid, nx, ny, gx, gy);
 
         let r, g, b, a;
         if (!isNaN(val)) {
