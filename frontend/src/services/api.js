@@ -1,5 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "https://heat-mitigation-production.up.railway.app";
-
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`);

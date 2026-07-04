@@ -157,6 +157,116 @@ ZONE_DATA = {
         },
         "population": 8765, "area_sqkm": 8.1,
     },
+    "thane_station": {
+        "name": "Thane Station", "lat": 19.194, "lon": 72.976,
+        "features": {
+            "NDVI": 0.06, "albedo": 0.09, "builtup": 0.95,
+            "road_density": 0.80, "impervious_pct": 0.88,
+            "heat_load_idx": 0.75, "wind_obstruction": 0.70,
+            "bldg_height_idx": 0.60, "pop_density": 35000,
+            "dist_to_water": 2500, "humidity": 64.0
+        },
+        "population": 350000, "area_sqkm": 4.2,
+    },
+    "majiwada": {
+        "name": "Majiwada", "lat": 19.223, "lon": 72.982,
+        "features": {
+            "NDVI": 0.04, "albedo": 0.07, "builtup": 0.96,
+            "road_density": 0.85, "impervious_pct": 0.90,
+            "heat_load_idx": 0.80, "wind_obstruction": 0.72,
+            "bldg_height_idx": 0.62, "pop_density": 18000,
+            "dist_to_water": 3000, "humidity": 63.0
+        },
+        "population": 180000, "area_sqkm": 2.8,
+    },
+    "kalwa": {
+        "name": "Kalwa", "lat": 19.172, "lon": 72.983,
+        "features": {
+            "NDVI": 0.05, "albedo": 0.08, "builtup": 0.94,
+            "road_density": 0.78, "impervious_pct": 0.87,
+            "heat_load_idx": 0.78, "wind_obstruction": 0.68,
+            "bldg_height_idx": 0.58, "pop_density": 38000,
+            "dist_to_water": 2200, "humidity": 64.0
+        },
+        "population": 380000, "area_sqkm": 3.9,
+    },
+    "wagle_estate": {
+        "name": "Wagle Estate", "lat": 19.207, "lon": 72.993,
+        "features": {
+            "NDVI": 0.07, "albedo": 0.10, "builtup": 0.90,
+            "road_density": 0.72, "impervious_pct": 0.82,
+            "heat_load_idx": 0.70, "wind_obstruction": 0.65,
+            "bldg_height_idx": 0.55, "pop_density": 22000,
+            "dist_to_water": 2800, "humidity": 65.0
+        },
+        "population": 220000, "area_sqkm": 5.1,
+    },
+    "airoli": {
+        "name": "Airoli", "lat": 19.150, "lon": 73.000,
+        "features": {
+            "NDVI": 0.18, "albedo": 0.14, "builtup": 0.78,
+            "road_density": 0.55, "impervious_pct": 0.60,
+            "heat_load_idx": 0.48, "wind_obstruction": 0.42,
+            "bldg_height_idx": 0.38, "pop_density": 18000,
+            "dist_to_water": 2000, "humidity": 66.0
+        },
+        "population": 175000, "area_sqkm": 6.8,
+    },
+    "vashi": {
+        "name": "Vashi", "lat": 19.077, "lon": 73.010,
+        "features": {
+            "NDVI": 0.14, "albedo": 0.13, "builtup": 0.82,
+            "road_density": 0.62, "impervious_pct": 0.68,
+            "heat_load_idx": 0.55, "wind_obstruction": 0.48,
+            "bldg_height_idx": 0.45, "pop_density": 25000,
+            "dist_to_water": 1500, "humidity": 66.0
+        },
+        "population": 230000, "area_sqkm": 5.5,
+    },
+    "nerul": {
+        "name": "Nerul", "lat": 19.033, "lon": 73.050,
+        "features": {
+            "NDVI": 0.20, "albedo": 0.16, "builtup": 0.72,
+            "road_density": 0.50, "impervious_pct": 0.55,
+            "heat_load_idx": 0.42, "wind_obstruction": 0.38,
+            "bldg_height_idx": 0.35, "pop_density": 20000,
+            "dist_to_water": 2500, "humidity": 67.0
+        },
+        "population": 195000, "area_sqkm": 7.2,
+    },
+    "cbd_belapur": {
+        "name": "CBD Belapur", "lat": 19.015, "lon": 73.042,
+        "features": {
+            "NDVI": 0.22, "albedo": 0.17, "builtup": 0.70,
+            "road_density": 0.48, "impervious_pct": 0.52,
+            "heat_load_idx": 0.40, "wind_obstruction": 0.35,
+            "bldg_height_idx": 0.32, "pop_density": 16000,
+            "dist_to_water": 3000, "humidity": 67.0
+        },
+        "population": 150000, "area_sqkm": 8.5,
+    },
+    "kharghar": {
+        "name": "Kharghar", "lat": 19.045, "lon": 73.070,
+        "features": {
+            "NDVI": 0.25, "albedo": 0.18, "builtup": 0.65,
+            "road_density": 0.45, "impervious_pct": 0.50,
+            "heat_load_idx": 0.38, "wind_obstruction": 0.32,
+            "bldg_height_idx": 0.30, "pop_density": 14000,
+            "dist_to_water": 3500, "humidity": 68.0
+        },
+        "population": 180000, "area_sqkm": 9.0,
+    },
+    "panvel": {
+        "name": "Panvel", "lat": 18.989, "lon": 73.115,
+        "features": {
+            "NDVI": 0.28, "albedo": 0.20, "builtup": 0.55,
+            "road_density": 0.38, "impervious_pct": 0.42,
+            "heat_load_idx": 0.32, "wind_obstruction": 0.28,
+            "bldg_height_idx": 0.25, "pop_density": 12000,
+            "dist_to_water": 5000, "humidity": 68.0
+        },
+        "population": 130000, "area_sqkm": 12.0,
+    },
 }
 
 INTERVENTION_EFFECTS = {
@@ -206,10 +316,12 @@ def _get_alert_thresholds() -> dict:
         s = _settings_store
     except NameError:
         return HEAT_RISK_THRESHOLDS.copy()
+    warning = float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["MEDIUM"]))
+    critical = float(s.get("alert_critical_temp", HEAT_RISK_THRESHOLDS["CRITICAL"]))
     return {
-        "CRITICAL": float(s.get("alert_critical_temp", HEAT_RISK_THRESHOLDS["CRITICAL"])),
-        "HIGH":     float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["HIGH"])),
-        "MEDIUM":   float(s.get("alert_warning_temp", HEAT_RISK_THRESHOLDS["MEDIUM"])) - 4,
+        "CRITICAL": max(critical, warning + 3),
+        "HIGH":     warning + 1.5,
+        "MEDIUM":   warning,
         "LOW":      0.0,
     }
 
@@ -383,28 +495,30 @@ def _classify_landcover(ndvi, builtup, bldg_h):
 def _generate_synthetic_grid(step: int) -> list[dict]:
     """Generate synthetic grid cells covering the Mumbai area using ZONE_DATA."""
     cells = []
-    base_lons = set()
-    base_lats = set()
+    lons = []
+    lats = []
     for z in ZONE_DATA.values():
-        base_lons.add(round(z["lon"], 3))
-        base_lats.add(round(z["lat"], 3))
-    base_lons = sorted(base_lons)
-    base_lats = sorted(base_lats)
+        lons.append(z["lon"])
+        lats.append(z["lat"])
 
-    # Expand to a denser grid around the zone locations
-    grid_lons = set()
-    grid_lats = set()
-    for lon in base_lons:
-        for offset in range(-3, 4):
-            grid_lons.add(round(lon + offset * GRID_SIZE, 6))
-    for lat in base_lats:
-        for offset in range(-3, 4):
-            grid_lats.add(round(lat + offset * GRID_SIZE, 6))
+    step_size = GRID_SIZE * step
+    expansion = 12 * GRID_SIZE
+    min_lon = round(min(lons) - expansion, 6)
+    max_lon = round(max(lons) + expansion, 6)
+    min_lat = round(min(lats) - expansion, 6)
+    max_lat = round(max(lats) + expansion, 6)
 
-    sorted_lons = sorted(grid_lons)[::step]
-    sorted_lats = sorted(grid_lats)[::step]
+    sorted_lons = []
+    val = min_lon
+    while val <= max_lon + 1e-10:
+        sorted_lons.append(round(val, 6))
+        val = round(val + step_size, 6)
 
-    # Find the nearest zone for each grid cell to base features on
+    sorted_lats = []
+    val = min_lat
+    while val <= max_lat + 1e-10:
+        sorted_lats.append(round(val, 6))
+        val = round(val + step_size, 6)
     def nearest_zone(lon, lat):
         best = None
         best_dist = float("inf")
@@ -495,7 +609,6 @@ def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all ce
                 "land_cover":       lc,
             })
     else:
-        # Fallback: generate synthetic grid from ZONE_DATA
         features = _generate_synthetic_grid(step)
 
     return {"count": len(features), "step": step, "grid_size": GRID_SIZE, "cells": features}

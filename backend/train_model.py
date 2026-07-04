@@ -47,7 +47,7 @@ os.makedirs("data",    exist_ok=True)
 # FEATURE DEFINITIONS
 # 
 FEATURE_COLS = [
-    "NDVI",            # vegetation index (−1 to 1; higher = more green = cooler)
+    "NDVI",            # vegetation index (-1 to 1; higher = more green = cooler)
     "albedo",          # surface reflectance (0–1; higher = reflects more = cooler)
     "builtup",         # binary: is this cell built-up? (0 or 1)
     "road_density",    # 0–1 fraction of cell covered by roads
@@ -314,7 +314,7 @@ def run_shap_analysis(model, X_train, X_test, feature_names):
     ax1.set_facecolor("#111827")
 
     feature_labels = [
-        f.replace("_", " ").title() for i in feature_names
+        fn.replace("_", " ").title() for fn in feature_names
     ]
     sorted_labels = [feature_labels[i] for i in sorted_idx]
     sorted_vals   = [mean_shap[i] for i in sorted_idx]
@@ -358,7 +358,7 @@ def run_shap_analysis(model, X_train, X_test, feature_names):
                      mincnt=1, edgecolors=None, alpha=0.85)
     cbar_hb = plt.colorbar(hb, ax=ax2, label="Point density", shrink=0.8)
     cbar_hb.ax.yaxis.set_tick_params(color="#8B9DC3")
-    plt.setp(plt.getp(cbar_hb.ax.yticklabels, "color"), color="#8B9DC3")
+    plt.setp(cbar_hb.ax.yaxis.get_ticklabels(), color="#8B9DC3")
 
     mn, mx = min(y_pred.min(), y_true[0]), max(y_pred.max(), y_true[0])
     ax2.plot([mn, mx], [mn, mx], color="#FF4E1A", lw=2,
@@ -406,11 +406,11 @@ def build_scenario_simulator(model, scaler, feature_names):
     This is what your /simulate API endpoint calls.
 
     Intervention effects (based on urban heat mitigation literature):
-      cool_roofs:      albedo +0.55, heat_load_idx −0.15
-      green_roofs:     NDVI +0.35, albedo +0.10, wind_obstruction −0.05
-      cool_pavements:  road_density albedo +0.35, impervious_pct −0.10
+      cool_roofs:      albedo +0.55, heat_load_idx -0.15
+      green_roofs:     NDVI +0.35, albedo +0.10, wind_obstruction -0.05
+      cool_pavements:  road_density albedo +0.35, impervious_pct -0.10
       high_albedo_paint: albedo +0.45
-      urban_greening:  NDVI +0.20, dist_to_water −300, heat_load_idx −0.10
+      urban_greening:  NDVI +0.20, dist_to_water -300, heat_load_idx -0.10
     """
     INTERVENTION_EFFECTS = {
         "cool_roofs": {
@@ -502,7 +502,7 @@ def build_scenario_simulator(model, scaler, feature_names):
             "reduction_C":     round(reduction,   2),
             "area_treated_m2": round(area_m2,     0),
             "total_cost_INR":  round(total_cost,  0),
-            "cost_per_degC":   round(cost_per_c,  0),
+            "cost_per_degC":   round(cost_per_c, 0) if cost_per_c is not None else None,
             "confidence_pct":  94.2,
         }
 
@@ -622,9 +622,9 @@ def main():
     print(f"\n  Intervention:    cool_roofs @ 65% coverage")
     print(f"  Before:          {result['temp_before_C']}C")
     print(f"  After:           {result['temp_after_C']}C")
-    print(f"  Reduction:       −{result['reduction_C']}C")
-    print(f"  Total cost:      ₹{result['total_cost_INR']:,.0f}")
-    print(f"  Cost efficiency: ₹{result['cost_per_degC']:,.0f} per C")
+    print(f"  Reduction:       -{result['reduction_C']}C")
+    print(f"  Total cost:      Rs {result['total_cost_INR']:,.0f}")
+    print(f"  Cost efficiency: Rs {result['cost_per_degC']:,.0f} per C")
     print(f"  Confidence:      {result['confidence_pct']}%")
 
     print("\n Step 2 complete. Run step3_api.py to launch the backend.")

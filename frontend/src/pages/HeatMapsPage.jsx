@@ -14,16 +14,16 @@ import "../styles/pages.css";
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
 const LAYERS = [
-  { id: "lst",        label: "Surface Temp (LST)" },
-  { id: "ndvi",       label: "NDVI Vegetation Index" },
-  { id: "landcover",  label: "Land Cover" },
-  { id: "building",   label: "Building Footprints" },
-  { id: "road",       label: "Road Network Density" },
+  { id: "lst", label: "Surface Temp (LST)" },
+  { id: "ndvi", label: "NDVI Vegetation Index" },
+  { id: "landcover", label: "Land Cover" },
+  { id: "building", label: "Building Footprints" },
+  { id: "road", label: "Road Network Density" },
   { id: "population", label: "Population Density" },
 ];
 
@@ -32,13 +32,13 @@ const GRID_SIZE = 0.005;
 
 function getFieldValue(cell, layerId) {
   switch (layerId) {
-    case "lst":        return cell.LST_celsius;
-    case "ndvi":       return cell.NDVI;
-    case "landcover":  return cell.land_cover;
-    case "building":   return cell.bldg_height_idx;
-    case "road":       return cell.road_density;
+    case "lst": return cell.LST_celsius;
+    case "ndvi": return cell.NDVI;
+    case "landcover": return cell.land_cover;
+    case "building": return cell.bldg_height_idx;
+    case "road": return cell.road_density;
     case "population": return cell.pop_density;
-    default:           return 0;
+    default: return 0;
   }
 }
 
@@ -53,10 +53,10 @@ function layerColor(val, layerId) {
       if (val >= 38) return "#22d3ee";
       return "#06b6d4";
     case "ndvi":
-      if (val > 0.5)  return "#006837";
-      if (val > 0.3)  return "#31a354";
+      if (val > 0.5) return "#006837";
+      if (val > 0.3) return "#31a354";
       if (val > 0.15) return "#78c679";
-      if (val > 0)    return "#c2e699";
+      if (val > 0) return "#c2e699";
       if (val > -0.1) return "#ffffc2";
       return "#d73027";
     case "landcover":
@@ -75,8 +75,8 @@ function layerColor(val, layerId) {
     case "population":
       if (val > 20000) return "#7c3aed";
       if (val > 10000) return "#a78bfa";
-      if (val > 5000)  return "#c4b5fd";
-      if (val > 1000)  return "#ddd6fe";
+      if (val > 5000) return "#c4b5fd";
+      if (val > 1000) return "#ddd6fe";
       return "#1e1b4b";
     default:
       return "#1a1a2e";
@@ -159,7 +159,7 @@ export default function HeatMapsPage() {
 
   const loadData = useCallback((f, t) => {
     setLoading(true);
-    Promise.allSettled([fetchHeatmap(f, t), fetchGridHeatmap(2)])
+    Promise.allSettled([fetchHeatmap(f, t), fetchGridHeatmap(1)])
       .then(([heatResult, gridResult]) => {
         if (heatResult.status === "fulfilled") {
           setZones(heatResult.value.zones || []);
@@ -213,7 +213,7 @@ export default function HeatMapsPage() {
       cells: gridCells,
       getValue: (c) => getFieldValue(c, activeLayer),
       layerId: activeLayer,
-      width: 800,
+      width: 3600,
     });
   }, [gridCells, activeLayer]);
 
@@ -247,19 +247,19 @@ export default function HeatMapsPage() {
       <main className={"ml-64 pt-16 h-screen relative flex overflow-hidden"}>
         <div className={"absolute inset-0 z-0"}>
           <MapContainer
-            center={[19.015, 72.865]}
-            zoom={12}
+            center={[19.08, 72.99]}
+            zoom={11}
             className={"w-full h-full"}
             zoomControl={true}
-            style={{ background: "#000d26" }}
+            style={{ background: "#1a1a2e" }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.esri.com/">ESRI</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             />
             {zones.map(z => {
               const riskColor = z.risk_level === "CRITICAL" ? "#ef4444" :
-                                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
+                z.risk_level === "HIGH" ? "#f97316" : "#00d4b4";
               const isHottest = hottestZone && z.LST_celsius === hottestZone.LST_celsius;
               const icon = L.divIcon({
                 className: "custom-zone-marker",
@@ -275,7 +275,7 @@ export default function HeatMapsPage() {
                   <Tooltip direction="top" offset={[0, -16]} className={"custom-tooltip"}>
                     <div>
                       <strong>{z.name}</strong><br />
-                      <span style={{color: riskColor}}>{formatTemp(z.LST_celsius, settings.temperature_unit)}</span> &middot; {z.risk_level}
+                      <span style={{ color: riskColor }}>{formatTemp(z.LST_celsius, settings.temperature_unit)}</span> &middot; {z.risk_level}
                     </div>
                   </Tooltip>
                 </Marker>
@@ -285,7 +285,7 @@ export default function HeatMapsPage() {
               <ImageOverlay
                 url={rasterOverlay.dataUrl}
                 bounds={rasterOverlay.bounds}
-                opacity={0.85}
+                opacity={0.7}
               />
             )}
           </MapContainer>
@@ -386,9 +386,8 @@ export default function HeatMapsPage() {
               const active = activeTab === tab;
               return (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-3 text-sm transition-colors ${
-                    active ? "text-secondary border-b-2 border-secondary font-bold" : "text-on-surface-variant font-medium hover:text-secondary-fixed"
-                  }`}>
+                  className={`flex-1 py-3 text-sm transition-colors ${active ? "text-secondary border-b-2 border-secondary font-bold" : "text-on-surface-variant font-medium hover:text-secondary-fixed"
+                    }`}>
                   {labels[tab]}
                 </button>
               );
@@ -408,8 +407,8 @@ export default function HeatMapsPage() {
                     </div>
                     <p className={"text-body-sm text-on-surface-variant leading-relaxed"}>
                       {z.risk_level === "CRITICAL" ? "High albedo surfaces identified. Recommend immediate shade implementation." :
-                       z.risk_level === "HIGH" ? "Elevated thermal load. Consider green infrastructure." :
-                       "Stable thermal profile. Adequate vegetation cover."}
+                        z.risk_level === "HIGH" ? "Elevated thermal load. Consider green infrastructure." :
+                          "Stable thermal profile. Adequate vegetation cover."}
                     </p>
                   </div>
                 ))}
@@ -446,8 +445,8 @@ export default function HeatMapsPage() {
                           </div>
                         </div>
                       )) || (
-                        <p className={"text-xs text-on-surface-variant"}>Loading driver analysis...</p>
-                      )}
+                          <p className={"text-xs text-on-surface-variant"}>Loading driver analysis...</p>
+                        )}
                     </div>
                     <div className={"space-y-2"}>
                       <label className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>
@@ -464,8 +463,8 @@ export default function HeatMapsPage() {
                           </p>
                         </div>
                       )) || (
-                        <p className={"text-xs text-on-surface-variant"}>Loading recommendations...</p>
-                      )}
+                          <p className={"text-xs text-on-surface-variant"}>Loading recommendations...</p>
+                        )}
                     </div>
                   </>
                 )}
