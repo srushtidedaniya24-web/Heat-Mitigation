@@ -70,7 +70,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten in production
+    allow_origins=["https://heat-mitigation.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -495,30 +495,26 @@ def _classify_landcover(ndvi, builtup, bldg_h):
 def _generate_synthetic_grid(step: int) -> list[dict]:
     """Generate synthetic grid cells covering the Mumbai area using ZONE_DATA."""
     cells = []
-    lons = []
-    lats = []
+    base_lons = set()
+    base_lats = set()
     for z in ZONE_DATA.values():
-        lons.append(z["lon"])
-        lats.append(z["lat"])
+        base_lons.add(round(z["lon"], 3))
+        base_lats.add(round(z["lat"], 3))
+    base_lons = sorted(base_lons)
+    base_lats = sorted(base_lats)
 
-    step_size = GRID_SIZE * step
-    expansion = 12 * GRID_SIZE
-    min_lon = round(min(lons) - expansion, 6)
-    max_lon = round(max(lons) + expansion, 6)
-    min_lat = round(min(lats) - expansion, 6)
-    max_lat = round(max(lats) + expansion, 6)
+    # Expand to a denser grid around the zone locations
+    grid_lons = set()
+    grid_lats = set()
+    for lon in base_lons:
+        for offset in range(-3, 4):
+            grid_lons.add(round(lon + offset * GRID_SIZE, 6))
+    for lat in base_lats:
+        for offset in range(-3, 4):
+            grid_lats.add(round(lat + offset * GRID_SIZE, 6))
 
-    sorted_lons = []
-    val = min_lon
-    while val <= max_lon + 1e-10:
-        sorted_lons.append(round(val, 6))
-        val = round(val + step_size, 6)
-
-    sorted_lats = []
-    val = min_lat
-    while val <= max_lat + 1e-10:
-        sorted_lats.append(round(val, 6))
-        val = round(val + step_size, 6)
+    sorted_lons = sorted(grid_lons)[::step]
+    sorted_lats = sorted(grid_lats)[::step]
     def nearest_zone(lon, lat):
         best = None
         best_dist = float("inf")
