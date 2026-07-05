@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar";
 import { fetchHeatmap, fetchMetrics, classifyZone } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 
 const CLASS_COLORS = { COOL: "#1A4FA0", MODERATE: "#0EA882", HOT: "#FF6B35", CRITICAL: "#FF4E1A" };
@@ -146,6 +147,7 @@ export default function PredictionsPage() {
   usePageInteractions(rootRef, "predictions");
 
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [zones, setZones] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -157,7 +159,7 @@ export default function PredictionsPage() {
   const [classifying, setClassifying] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchHeatmap(), fetchMetrics()])
+    Promise.all([fetchHeatmap(selectedCity), fetchMetrics()])
       .then(([heatData, metricsData]) => {
         const z = heatData.zones || [];
         z.sort((a, b) => b.LST_celsius - a.LST_celsius);
@@ -166,7 +168,7 @@ export default function PredictionsPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCity]);
 
   const displayZones = selectedZoneId === "all"
     ? zones

@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useCity } from "../contexts/CityContext";
 
 const navItems = [
   { to: "/", label: "Overview", icon: "dashboard" },
@@ -19,6 +20,7 @@ const bottomLinks = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const { selectedCity, setSelectedCity } = useCity();
 
   const linkClass = (path) =>
     pathname === path
@@ -30,6 +32,19 @@ export default function Sidebar() {
       <div className="px-6 mb-6">
         <h2 className="font-headline-sm text-headline-sm text-primary">Urban Core</h2>
         <p className="font-body-sm text-body-sm text-on-surface-variant">Sensor Network Active</p>
+      </div>
+      <div className="px-4 mb-4">
+        <label className="font-data-sm text-data-sm text-on-surface-variant block mb-1">City Filter</label>
+        <select
+          value={selectedCity}
+          onChange={(e) => setSelectedCity(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-body-sm text-on-surface font-body-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="all">All Cities</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Thane">Thane</option>
+          <option value="Navi Mumbai">Navi Mumbai</option>
+        </select>
       </div>
       <nav className="flex-1 space-y-1 px-2">
         {navItems.map(({ to, label, icon }) => (

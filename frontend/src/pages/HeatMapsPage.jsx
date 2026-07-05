@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Tooltip, ImageOverlay } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Tooltip, ImageOverlay, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 import { fetchHeatmap, fetchGridHeatmap, fetchRecommendations } from "../services/api";
 import { generateSmoothRaster } from "../utils/smoothRaster";
@@ -17,6 +18,14 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+function MapController({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom, { animate: true, duration: 0.5 });
+  }, [center, zoom]);
+  return null;
+}
 
 const LAYERS = [
   { id: "lst", label: "Surface Temp (LST)" },
@@ -145,6 +154,7 @@ export default function HeatMapsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "heatmaps");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [zones, setZones] = useState([]);
   const [gridCells, setGridCells] = useState([]);
@@ -159,7 +169,7 @@ export default function HeatMapsPage() {
 
   const loadData = useCallback((f, t) => {
     setLoading(true);
-    Promise.allSettled([fetchHeatmap(f, t), fetchGridHeatmap(1)])
+    Promise.allSettled([fetchHeatmap(selectedCity, f, t), fetchGridHeatmap(1, selectedCity)])
       .then(([heatResult, gridResult]) => {
         if (heatResult.status === "fulfilled") {
           setZones(heatResult.value.zones || []);
@@ -173,11 +183,11 @@ export default function HeatMapsPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
     loadData(dateFrom, dateTo);
-  }, []);
+  }, [selectedCity]);
 
   const handleRefresh = () => {
     loadData(dateFrom, dateTo);
@@ -202,6 +212,25 @@ export default function HeatMapsPage() {
     [zones]
   );
 
+  const mapCenter = useMemo(() => {
+    if (!zones.length) return [19.08, 72.99];
+    const latSum = zones.reduce((s, z) => s + z.lat, 0);
+    const lonSum = zones.reduce((s, z) => s + z.lon, 0);
+    return [latSum / zones.length, lonSum / zones.length];
+  }, [zones]);
+
+  const mapZoom = useMemo(() => {
+    if (!zones.length) return 11;
+    const lats = zones.map(z => z.lat);
+    const lons = zones.map(z => z.lon);
+    const latSpan = Math.max(...lats) - Math.min(...lats);
+    const lonSpan = Math.max(...lons) - Math.min(...lons);
+    const maxSpan = Math.max(latSpan, lonSpan);
+    if (maxSpan < 0.08) return 13;
+    if (maxSpan < 0.2) return 12;
+    return 11;
+  }, [zones]);
+
   const coolestZone = useMemo(
     () => zones.length ? zones.reduce((a, b) => a.LST_celsius < b.LST_celsius ? a : b) : null,
     [zones]
@@ -213,7 +242,6 @@ export default function HeatMapsPage() {
       cells: gridCells,
       getValue: (c) => getFieldValue(c, activeLayer),
       layerId: activeLayer,
-      width: 3600,
     });
   }, [gridCells, activeLayer]);
 
@@ -247,12 +275,13 @@ export default function HeatMapsPage() {
       <main className={"ml-64 pt-16 h-screen relative flex overflow-hidden"}>
         <div className={"absolute inset-0 z-0"}>
           <MapContainer
-            center={[19.08, 72.99]}
-            zoom={11}
+            center={mapCenter}
+            zoom={mapZoom}
             className={"w-full h-full"}
             zoomControl={true}
             style={{ background: "#1a1a2e" }}
           >
+            <MapController center={mapCenter} zoom={mapZoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.esri.com/">ESRI</a>'
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"

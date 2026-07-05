@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.VITE_API_URL || "https://heat-mitigation-production.up.railway.app").replace(/\/+$/, "");
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`);
@@ -9,18 +9,18 @@ async function get(path) {
   return res.json();
 }
 
-export function fetchHeatmap(dateFrom, dateTo) {
-  let path = "/heatmap?city=mumbai";
+export function fetchHeatmap(city = "all", dateFrom, dateTo) {
+  let path = `/heatmap?city=${encodeURIComponent(city)}`;
   if (dateFrom) path += `&date_from=${encodeURIComponent(dateFrom)}`;
-  if (dateTo)   path += `&date_to=${encodeURIComponent(dateTo)}`;
+  if (dateTo) path += `&date_to=${encodeURIComponent(dateTo)}`;
   return get(path);
 }
-export function fetchHotspots()      { return get("/hotspots?threshold=50&top_n=5"); }
-export function fetchZones()         { return get("/zones"); }
-export function fetchMetrics()       { return get("/metrics"); }
+export function fetchHotspots(city = "all") { return get(`/hotspots?city=${encodeURIComponent(city)}&threshold=50&top_n=5`); }
+export function fetchZones(city = "all") { return get(`/zones?city=${encodeURIComponent(city)}`); }
+export function fetchMetrics() { return get("/metrics"); }
 export function fetchRecommendations(zoneId) { return get(`/recommend/${zoneId}`); }
-export function fetchHealth()        { return get("/health"); }
-export function fetchGridHeatmap(step = 4) { return get(`/heatmap-grid?step=${step}`); }
+export function fetchHealth() { return get("/health"); }
+export function fetchGridHeatmap(step = 4, city = "all") { return get(`/heatmap-grid?step=${step}&city=${encodeURIComponent(city)}`); }
 export function fetchInterventions(coverage = 100, zoneId = null) {
   let path = `/interventions?coverage=${coverage}`;
   if (zoneId) path += `&zone_id=${zoneId}`;
@@ -48,8 +48,8 @@ export function classifyZone(zoneId) {
   return get(`/classify/zone/${zoneId}`);
 }
 
-export function fetchAlerts() {
-  return get("/alerts");
+export function fetchAlerts(city = "all") {
+  return get(`/alerts?city=${encodeURIComponent(city)}`);
 }
 
 export async function resolveAlert(zoneId) {

@@ -70,7 +70,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://heat-mitigation.vercel.app"],
+    allow_origins=["https://heat-mitigation.vercel.app", "https://heat-mitigation-production.up.railway.app", "http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -89,7 +89,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.65, "pop_density": 31000,
             "dist_to_water": 4200, "humidity": 62.0
         },
-        "population": 31345, "area_sqkm": 4.2,
+        "population": 31345, "area_sqkm": 4.2, "city": "Mumbai",
     },
     "northview": {
         "name": "Bandra", "lat": 19.060, "lon": 72.840,
@@ -100,7 +100,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.58, "pop_density": 28000,
             "dist_to_water": 3800, "humidity": 63.0
         },
-        "population": 28102, "area_sqkm": 5.1,
+        "population": 28102, "area_sqkm": 5.1, "city": "Mumbai",
     },
     "eastwood": {
         "name": "Chembur", "lat": 19.050, "lon": 72.900,
@@ -111,7 +111,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.52, "pop_density": 20000,
             "dist_to_water": 5100, "humidity": 64.0
         },
-        "population": 19847, "area_sqkm": 3.8,
+        "population": 19847, "area_sqkm": 3.8, "city": "Mumbai",
     },
     "riverside": {
         "name": "Powai", "lat": 19.120, "lon": 72.910,
@@ -122,7 +122,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.40, "pop_density": 15000,
             "dist_to_water": 800, "humidity": 68.0
         },
-        "population": 15234, "area_sqkm": 6.2,
+        "population": 15234, "area_sqkm": 6.2, "city": "Mumbai",
     },
     "southpark": {
         "name": "Colaba", "lat": 18.910, "lon": 72.820,
@@ -133,7 +133,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.45, "pop_density": 23000,
             "dist_to_water": 2900, "humidity": 66.0
         },
-        "population": 22891, "area_sqkm": 4.9,
+        "population": 22891, "area_sqkm": 4.9, "city": "Mumbai",
     },
     "westhill": {
         "name": "Andheri", "lat": 19.120, "lon": 72.850,
@@ -144,7 +144,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.32, "pop_density": 11000,
             "dist_to_water": 3500, "humidity": 67.0
         },
-        "population": 11203, "area_sqkm": 7.3,
+        "population": 11203, "area_sqkm": 7.3, "city": "Mumbai",
     },
     "lakeside": {
         "name": "Worli", "lat": 19.000, "lon": 72.820,
@@ -155,7 +155,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.18, "pop_density": 8700,
             "dist_to_water": 300, "humidity": 72.0
         },
-        "population": 8765, "area_sqkm": 8.1,
+        "population": 8765, "area_sqkm": 8.1, "city": "Mumbai",
     },
     "thane_station": {
         "name": "Thane Station", "lat": 19.194, "lon": 72.976,
@@ -166,7 +166,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.60, "pop_density": 35000,
             "dist_to_water": 2500, "humidity": 64.0
         },
-        "population": 350000, "area_sqkm": 4.2,
+        "population": 350000, "area_sqkm": 4.2, "city": "Thane",
     },
     "majiwada": {
         "name": "Majiwada", "lat": 19.223, "lon": 72.982,
@@ -177,7 +177,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.62, "pop_density": 18000,
             "dist_to_water": 3000, "humidity": 63.0
         },
-        "population": 180000, "area_sqkm": 2.8,
+        "population": 180000, "area_sqkm": 2.8, "city": "Thane",
     },
     "kalwa": {
         "name": "Kalwa", "lat": 19.172, "lon": 72.983,
@@ -188,7 +188,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.58, "pop_density": 38000,
             "dist_to_water": 2200, "humidity": 64.0
         },
-        "population": 380000, "area_sqkm": 3.9,
+        "population": 380000, "area_sqkm": 3.9, "city": "Thane",
     },
     "wagle_estate": {
         "name": "Wagle Estate", "lat": 19.207, "lon": 72.993,
@@ -199,7 +199,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.55, "pop_density": 22000,
             "dist_to_water": 2800, "humidity": 65.0
         },
-        "population": 220000, "area_sqkm": 5.1,
+        "population": 220000, "area_sqkm": 5.1, "city": "Thane",
     },
     "airoli": {
         "name": "Airoli", "lat": 19.150, "lon": 73.000,
@@ -210,7 +210,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.38, "pop_density": 18000,
             "dist_to_water": 2000, "humidity": 66.0
         },
-        "population": 175000, "area_sqkm": 6.8,
+        "population": 175000, "area_sqkm": 6.8, "city": "Navi Mumbai",
     },
     "vashi": {
         "name": "Vashi", "lat": 19.077, "lon": 73.010,
@@ -221,7 +221,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.45, "pop_density": 25000,
             "dist_to_water": 1500, "humidity": 66.0
         },
-        "population": 230000, "area_sqkm": 5.5,
+        "population": 230000, "area_sqkm": 5.5, "city": "Navi Mumbai",
     },
     "nerul": {
         "name": "Nerul", "lat": 19.033, "lon": 73.050,
@@ -232,7 +232,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.35, "pop_density": 20000,
             "dist_to_water": 2500, "humidity": 67.0
         },
-        "population": 195000, "area_sqkm": 7.2,
+        "population": 195000, "area_sqkm": 7.2, "city": "Navi Mumbai",
     },
     "cbd_belapur": {
         "name": "CBD Belapur", "lat": 19.015, "lon": 73.042,
@@ -243,7 +243,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.32, "pop_density": 16000,
             "dist_to_water": 3000, "humidity": 67.0
         },
-        "population": 150000, "area_sqkm": 8.5,
+        "population": 150000, "area_sqkm": 8.5, "city": "Navi Mumbai",
     },
     "kharghar": {
         "name": "Kharghar", "lat": 19.045, "lon": 73.070,
@@ -254,7 +254,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.30, "pop_density": 14000,
             "dist_to_water": 3500, "humidity": 68.0
         },
-        "population": 180000, "area_sqkm": 9.0,
+        "population": 180000, "area_sqkm": 9.0, "city": "Navi Mumbai",
     },
     "panvel": {
         "name": "Panvel", "lat": 18.989, "lon": 73.115,
@@ -265,7 +265,7 @@ ZONE_DATA = {
             "bldg_height_idx": 0.25, "pop_density": 12000,
             "dist_to_water": 5000, "humidity": 68.0
         },
-        "population": 130000, "area_sqkm": 12.0,
+        "population": 130000, "area_sqkm": 12.0, "city": "Navi Mumbai",
     },
 }
 
@@ -308,6 +308,14 @@ def get_shap_breakdown(features: dict) -> dict:
     scaled = SCALER.transform(vec.reshape(1, -1))
     vals   = EXPLAINER.shap_values(scaled)[0]
     return {f: round(float(vals[i]), 3) for i, f in enumerate(FEATURE_NAMES)}
+
+
+def filter_zones(city: str = "all") -> dict:
+    """Filter ZONE_DATA by city. 'all' returns everything."""
+    if city.lower() == "all":
+        return ZONE_DATA
+    return {zid: z for zid, z in ZONE_DATA.items()
+            if z.get("city", "").lower() == city.lower()}
 
 
 def _get_alert_thresholds() -> dict:
@@ -370,33 +378,36 @@ def health():
 
 
 @app.get("/zones")
-def list_zones():
-    """List all available zones with basic info."""
+def list_zones(city: str = Query("all")):
+    """List available zones with basic info, optionally filtered by city."""
+    zone_data = filter_zones(city)
     return {
         "zones": [
             {"zone_id": zid, "name": z["name"],
              "lat": z["lat"], "lon": z["lon"],
-             "population": z["population"]}
-            for zid, z in ZONE_DATA.items()
+             "population": z["population"], "city": z.get("city", "")}
+            for zid, z in zone_data.items()
         ]
     }
 
 
 @app.get("/heatmap")
 def get_heatmap(
-    city: str = Query("mumbai"),
+    city: str = Query("all"),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
 ):
     """
-    Returns GeoJSON-style heat data for all zones.
-    Frontend uses this to color the map polygons.
+    Returns GeoJSON-style heat data for filtered zones.
+    Use city=mumbai|thane|navi%20mumbai|all to filter.
     """
     if MODEL is None:
         raise HTTPException(503, "Model not loaded")
 
+    zone_data = filter_zones(city)
+
     features_list = []
-    for zone_id, zone in ZONE_DATA.items():
+    for zone_id, zone in zone_data.items():
         lst        = predict_lst(zone["features"])
         risk       = get_risk_level(lst)
         risk_idx   = compute_heat_risk_index(lst)
@@ -432,19 +443,20 @@ def get_heatmap(
 
 @app.get("/hotspots")
 def get_hotspots(
-    city:      str   = Query("mumbai"),
+    city:      str   = Query("all"),
     threshold: float = Query(50.0, description="Min temp in °C"),
     top_n:     int   = Query(5,    description="Max zones to return")
 ):
     """
     Returns zones above the temperature threshold, ranked by priority.
-    Used for the Alerts page and map hotspot markers.
+    Use city=mumbai|thane|navi%20mumbai|all to filter.
     """
     if MODEL is None:
         raise HTTPException(503, "Model not loaded")
 
+    zone_data = filter_zones(city)
     hotspots = []
-    for zone_id, zone in ZONE_DATA.items():
+    for zone_id, zone in zone_data.items():
         lst = predict_lst(zone["features"])
         if lst >= threshold:
             shap_b   = get_shap_breakdown(zone["features"])
@@ -476,6 +488,13 @@ def get_hotspots(
 
 GRID_SIZE = 0.005
 
+CITY_BOUNDS = {
+    "Mumbai":      {"lat_min": 18.88, "lat_max": 19.15, "lon_min": 72.78, "lon_max": 72.93},
+    "Thane":       {"lat_min": 19.15, "lat_max": 19.26, "lon_min": 72.94, "lon_max": 73.02},
+    "Navi Mumbai": {"lat_min": 18.95, "lat_max": 19.18, "lon_min": 72.98, "lon_max": 73.14},
+    "all":         {"lat_min": 18.83, "lat_max": 19.30, "lon_min": 72.73, "lon_max": 73.20},
+}
+
 def _cell_bbox(lon, lat):
     """Return [sw_lon, sw_lat, ne_lon, ne_lat] for a grid cell."""
     return [lon, lat, lon + GRID_SIZE, lat + GRID_SIZE]
@@ -492,16 +511,25 @@ def _classify_landcover(ndvi, builtup, bldg_h):
     else:
         return "bare"
 
-def _generate_synthetic_grid(step: int) -> list[dict]:
-    """Generate synthetic grid cells covering the Mumbai area using ZONE_DATA."""
-    cells = []
-    base_lons = [z["lon"] for z in ZONE_DATA.values()]
-    base_lats = [z["lat"] for z in ZONE_DATA.values()]
+def _generate_synthetic_grid(step: int, zone_data: dict = None) -> list[dict]:
+    """Generate synthetic grid cells covering the area of given zones."""
+    if zone_data is None:
+        zone_data = ZONE_DATA
 
-    min_lon = min(base_lons) - 3 * GRID_SIZE
-    max_lon = max(base_lons) + 3 * GRID_SIZE
-    min_lat = min(base_lats) - 3 * GRID_SIZE
-    max_lat = max(base_lats) + 3 * GRID_SIZE
+    # Determine city from zone_data to pick proper bounds
+    cities_in_data = set(z.get("city", "") for z in zone_data.values())
+    if len(cities_in_data) == 1:
+        city = cities_in_data.pop()
+    else:
+        city = "all"
+    bounds = CITY_BOUNDS.get(city, CITY_BOUNDS["all"])
+
+    min_lon = bounds["lon_min"]
+    max_lon = bounds["lon_max"]
+    min_lat = bounds["lat_min"]
+    max_lat = bounds["lat_max"]
+
+    cells = []
 
     num_lons = int(round((max_lon - min_lon) / GRID_SIZE)) + 1
     num_lats = int(round((max_lat - min_lat) / GRID_SIZE)) + 1
@@ -514,17 +542,20 @@ def _generate_synthetic_grid(step: int) -> list[dict]:
     def nearest_zone(lon, lat):
         best = None
         best_dist = float("inf")
-        for zid, z in ZONE_DATA.items():
+        for zid, z in zone_data.items():
             d = (z["lon"] - lon) ** 2 + (z["lat"] - lat) ** 2
             if d < best_dist:
                 best_dist = d
                 best = zid
-        return best
+        return best, best_dist
 
+    max_dist = (0.03 * 0.03)  # ~3km squared degrees
     for lon in sorted_lons:
         for lat in sorted_lats:
-            zid = nearest_zone(lon, lat)
-            z = ZONE_DATA[zid]
+            zid, dist = nearest_zone(lon, lat)
+            if dist > max_dist or zid is None:
+                continue
+            z = zone_data[zid]
             f = z["features"]
             ndvi = f.get("NDVI", 0.1) + np.random.uniform(-0.05, 0.05)
             builtup = f.get("builtup", 0.5) + np.random.uniform(-0.1, 0.1)
@@ -563,45 +594,63 @@ def _generate_synthetic_grid(step: int) -> list[dict]:
 
 
 @app.get("/heatmap-grid")
-def get_heatmap_grid(step: int = Query(2, description="Downsample step (1=all cells, 5=~440)")):
+def get_heatmap_grid(
+    step: int = Query(2, description="Downsample step (1=all cells, 5=~440)"),
+    city: str = Query("all"),
+):
     """
     Returns grid cells as contiguous polygons with all feature layers.
-    Each cell includes a bounding box for seamless map overlay.
+    Uses real training data filtered by city bounds. Falls back to synthetic if CSV unavailable.
     """
+    zone_data = filter_zones(city)
     csv_path = os.path.join(os.path.dirname(__file__), "data", "features_raw.csv")
+    features = []
+
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
-        df = df.iloc[::step, :]
 
-        features = []
-        for _, row in df.iterrows():
-            lon = float(row["lon"])
-            lat = float(row["lat"])
-            ndvi = float(row.get("NDVI", 0))
-            builtup = float(row.get("builtup", 0))
-            bldg_h = float(row.get("bldg_height_idx", 0))
-            lc = _classify_landcover(ndvi, builtup, bldg_h)
+        # Filter by city bounds when a specific city is selected
+        if city.lower() != "all":
+            bounds = CITY_BOUNDS.get(city.title())
+            if bounds:
+                df = df[
+                    (df["lat"] >= bounds["lat_min"]) &
+                    (df["lat"] <= bounds["lat_max"]) &
+                    (df["lon"] >= bounds["lon_min"]) &
+                    (df["lon"] <= bounds["lon_max"])
+                ]
 
-            features.append({
-                "bbox":             _cell_bbox(lon, lat),
-                "lat":              lat,
-                "lon":              lon,
-                "LST_celsius":      round(float(row["LST_celsius"]), 1),
-                "NDVI":             round(ndvi, 3),
-                "albedo":           round(float(row.get("albedo", 0)), 3),
-                "builtup":          round(builtup, 2),
-                "road_density":     round(float(row.get("road_density", 0)), 3),
-                "impervious_pct":   round(float(row.get("impervious_pct", 0)), 3),
-                "heat_load_idx":    round(float(row.get("heat_load_idx", 0)), 3),
-                "wind_obstruction": round(float(row.get("wind_obstruction", 0)), 3),
-                "bldg_height_idx":  round(bldg_h, 3),
-                "pop_density":      round(float(row.get("pop_density", 0)), 1),
-                "dist_to_water":    round(float(row.get("dist_to_water", 0)), 1),
-                "humidity":         round(float(row.get("humidity", 0)), 1),
-                "land_cover":       lc,
-            })
-    else:
-        features = _generate_synthetic_grid(step)
+        if len(df) > 0:
+            df = df.iloc[::step, :]
+            for _, row in df.iterrows():
+                lon = float(row["lon"])
+                lat = float(row["lat"])
+                ndvi = float(row.get("NDVI", 0))
+                builtup = float(row.get("builtup", 0))
+                bldg_h = float(row.get("bldg_height_idx", 0))
+                lc = _classify_landcover(ndvi, builtup, bldg_h)
+
+                features.append({
+                    "bbox":             _cell_bbox(lon, lat),
+                    "lat":              lat,
+                    "lon":              lon,
+                    "LST_celsius":      round(float(row["LST_celsius"]), 1),
+                    "NDVI":             round(ndvi, 3),
+                    "albedo":           round(float(row.get("albedo", 0)), 3),
+                    "builtup":          round(builtup, 2),
+                    "road_density":     round(float(row.get("road_density", 0)), 3),
+                    "impervious_pct":   round(float(row.get("impervious_pct", 0)), 3),
+                    "heat_load_idx":    round(float(row.get("heat_load_idx", 0)), 3),
+                    "wind_obstruction": round(float(row.get("wind_obstruction", 0)), 3),
+                    "bldg_height_idx":  round(bldg_h, 3),
+                    "pop_density":      round(float(row.get("pop_density", 0)), 1),
+                    "dist_to_water":    round(float(row.get("dist_to_water", 0)), 1),
+                    "humidity":         round(float(row.get("humidity", 0)), 1),
+                    "land_cover":       lc,
+                })
+
+    if not features:
+        features = _generate_synthetic_grid(step, zone_data)
 
     return {"count": len(features), "step": step, "grid_size": GRID_SIZE, "cells": features}
 
@@ -933,11 +982,12 @@ _resolved_alerts: set[str] = set()
 _alert_counter: int = 0
 
 @app.get("/alerts")
-def get_alerts():
+def get_alerts(city: str = Query("all")):
     global _alert_counter
     thresholds = _get_alert_thresholds()
+    zone_data = filter_zones(city)
     alerts = []
-    for zone_id, zone in ZONE_DATA.items():
+    for zone_id, zone in zone_data.items():
         if zone_id in _resolved_alerts:
             continue
         lst = predict_lst(zone["features"])

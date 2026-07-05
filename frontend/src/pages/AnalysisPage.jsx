@@ -5,12 +5,14 @@ import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 
 export default function AnalysisPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "analysis");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -22,14 +24,14 @@ export default function AnalysisPage() {
   const [simIntervention, setSimIntervention] = useState("cool_roofs");
 
   useEffect(() => {
-    fetchHeatmap()
+    fetchHeatmap(selectedCity)
       .then(data => {
         setZones(data.zones || []);
         if (data.zones?.length) setSelectedZone(data.zones[0]);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
     if (selectedZone) {

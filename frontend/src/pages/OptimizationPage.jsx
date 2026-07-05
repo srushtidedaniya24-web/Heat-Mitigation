@@ -5,6 +5,7 @@ import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchZones, fetchInterventions, simulateIntervention, fetchRecommendations } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 
 const INTERVENTION_LABELS = {
@@ -19,6 +20,7 @@ export default function OptimizationPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "optimization");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [zones, setZones] = useState([]);
   const [intvByZone, setIntvByZone] = useState({});
@@ -31,7 +33,9 @@ export default function OptimizationPage() {
   const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
-    fetchZones().then(data => {
+    setResults({});
+    setIntvByZone({});
+    fetchZones(selectedCity).then(data => {
       setZones(data.zones || []);
       const configs = {};
       (data.zones || []).forEach(z => {
@@ -40,7 +44,7 @@ export default function OptimizationPage() {
       setZoneConfigs(configs);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
     if (zones.length === 0) return;

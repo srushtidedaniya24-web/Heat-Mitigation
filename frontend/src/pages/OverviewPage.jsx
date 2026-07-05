@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp, formatTime } from "../utils/formatUtils";
 import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../services/api";
 import "../styles/pages.css";
@@ -20,6 +21,7 @@ export default function OverviewPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "overview");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -39,7 +41,7 @@ export default function OverviewPage() {
   const dayProgress = ((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100;
 
   useEffect(() => {
-    fetchHeatmap()
+    fetchHeatmap(selectedCity)
       .then(data => {
         const zonesData = data.zones || [];
         setZones(zonesData);
@@ -47,7 +49,7 @@ export default function OverviewPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
     if (selectedZone) {
@@ -70,17 +72,9 @@ export default function OverviewPage() {
             <span className={"material-symbols-outlined text-primary text-sm"}>
               location_on
             </span>
-            <select className={"bg-transparent border-none text-body-sm focus:ring-0 p-0 pr-8 cursor-pointer"}>
-              <option>
-                Mumbai Metropolitan Region
-              </option>
-              <option>
-                Navi Mumbai
-              </option>
-              <option>
-                Thane District
-              </option>
-            </select>
+            <span className={"font-body-sm text-body-sm text-on-surface font-medium"}>
+              {selectedCity === "all" ? "All Cities" : selectedCity}
+            </span>
           </div>
           <div className={"flex items-center gap-3 px-4 border-l border-outline-variant"}>
             <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest"}>

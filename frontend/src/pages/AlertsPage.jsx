@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 import { fetchAlerts, resolveAlert } from "../services/api";
 import "../styles/pages.css";
@@ -32,6 +33,7 @@ export default function AlertsPage() {
   const navigate = useNavigate();
   usePageInteractions(rootRef, "alerts");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [alerts, setAlerts] = useState([]);
   const [meta, setMeta] = useState({ total: 0, critical: 0, high: 0, medium: 0 });
@@ -42,7 +44,7 @@ export default function AlertsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchAlerts();
+      const data = await fetchAlerts(selectedCity);
       setAlerts(data.alerts || []);
       setMeta({ total: data.total || 0, critical: data.critical || 0, high: data.high || 0, medium: data.medium || 0, generated: data.generated });
       setError(null);
@@ -51,7 +53,7 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
     load();

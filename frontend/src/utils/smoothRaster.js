@@ -6,16 +6,12 @@ function lerpColor(c1, c2, t) {
   ];
 }
 
-// Separable Gaussian blur on the grid to remove blocky cell-boundary artifacts.
-// Each output cell is a Gaussian-weighted average of its neighborhood.
-// NaN cells are skipped and weights are renormalized.
 function gaussianBlurGrid(grid, nx, ny, sigma) {
   const radius = Math.ceil(sigma * 3);
   const kernel = [];
   for (let i = -radius; i <= radius; i++) {
     kernel.push(Math.exp(-(i * i) / (2 * sigma * sigma)));
   }
-  // Horizontal pass
   const temp = Array.from({ length: ny }, () => new Float32Array(nx));
   for (let y = 0; y < ny; y++) {
     for (let x = 0; x < nx; x++) {
@@ -30,7 +26,6 @@ function gaussianBlurGrid(grid, nx, ny, sigma) {
       temp[y][x] = wsum > 0 ? sum / wsum : NaN;
     }
   }
-  // Vertical pass
   const result = Array.from({ length: ny }, () => new Float32Array(nx));
   for (let x = 0; x < nx; x++) {
     for (let y = 0; y < ny; y++) {
@@ -46,30 +41,6 @@ function gaussianBlurGrid(grid, nx, ny, sigma) {
     }
   }
   return result;
-}
-
-// Bilinear with graceful NaN fallback — weights only valid neighbors
-function sampleGrid(valueGrid, nx, ny, gx, gy) {
-  const ix = Math.max(0, Math.min(nx - 2, Math.floor(gx)));
-  const iy = Math.max(0, Math.min(ny - 2, Math.floor(gy)));
-  const fx = Math.max(0, Math.min(1, gx - ix));
-  const fy = Math.max(0, Math.min(1, gy - iy));
-
-  const v00 = valueGrid[iy][ix];
-  const v10 = valueGrid[iy][ix + 1];
-  const v01 = valueGrid[iy + 1][ix];
-  const v11 = valueGrid[iy + 1][ix + 1];
-
-  let sum = 0, wsum = 0;
-  const ws = [(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy];
-  const vs = [v00, v10, v01, v11];
-  for (let k = 0; k < 4; k++) {
-    if (vs[k] != null && !isNaN(vs[k])) {
-      sum += vs[k] * ws[k];
-      wsum += ws[k];
-    }
-  }
-  return wsum > 0 ? sum / wsum : NaN;
 }
 
 const PALETTES = {
@@ -135,7 +106,7 @@ function samplePalette(palette, t) {
   return palette[palette.length - 1][1];
 }
 
-function getSmoothColor(val, layerId, minVal, maxVal) {
+function getColor(val, layerId, minVal, maxVal) {
   if (val == null || isNaN(val)) return [0, 0, 0, 0];
   const range = maxVal - minVal || 1;
   const t = (val - minVal) / range;
@@ -145,24 +116,22 @@ function getSmoothColor(val, layerId, minVal, maxVal) {
   return [r, g, b, 180];
 }
 
-const WATER_COLOR = [0, 13, 38, 0];
-
-export function generateSmoothRaster({ cells, getValue, layerId, width = 3600 }) {
+export function generateSmoothRaster({ cells, getValue, layerId }) {
   if (!cells || cells.length === 0) return null;
 
   const isCategorical = CATEGORICAL_LAYERS.has(layerId);
   const catColors = CATEGORICAL_COLORS[layerId] || {};
 
-  const centerMap = new Map();
   let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  const cellMap = new Map();
 
   cells.forEach((c) => {
     if (!c.bbox) return;
     const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
     const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
     const key = `${cx},${cy}`;
-    if (!centerMap.has(key)) {
-      centerMap.set(key, { lon: cx, lat: cy });
+    if (!cellMap.has(key)) {
+      cellMap.set(key, { lon: cx, lat: cy, value: getValue(c) });
     }
     minLon = Math.min(minLon, c.bbox[0]);
     minLat = Math.min(minLat, c.bbox[1]);
@@ -170,73 +139,91 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 3600 })
     maxLat = Math.max(maxLat, c.bbox[3]);
   });
 
-  const centers = [...centerMap.values()];
-  const lons = [...new Set(centers.map((p) => p.lon))].sort((a, b) => a - b);
-  const lats = [...new Set(centers.map((p) => p.lat))].sort((a, b) => a - b);
+  const points = [...cellMap.values()];
+  const lons = [...new Set(points.map(p => p.lon))].sort((a, b) => a - b);
+  const lats = [...new Set(points.map(p => p.lat))].sort((a, b) => a - b);
 
   const nx = lons.length;
   const ny = lats.length;
   if (nx < 2 || ny < 2) return null;
 
-  const padLon = ((maxLon - minLon) / (nx - 1)) * 0.5;
-  const padLat = ((maxLat - minLat) / (ny - 1)) * 0.5;
-  const eMinLon = minLon - padLon;
-  const eMinLat = minLat - padLat;
-  const eMaxLon = maxLon + padLon;
-  const eMaxLat = maxLat + padLat;
-
-  const aspect = (eMaxLat - eMinLat) / (eMaxLon - eMinLon);
-  const cw = width;
-  const ch = Math.max(1, Math.round(width * aspect));
+  // Scale factor: each grid cell becomes cellScale × cellScale pixels
+  // Aim for larger dimension >= 2048 for GIS-quality rendering
+  const cellScale = Math.max(1, Math.min(16, Math.floor(2048 / Math.max(nx, ny))));
+  const sw = nx * cellScale;
+  const sh = ny * cellScale;
 
   const canvas = document.createElement("canvas");
-  canvas.width = cw;
-  canvas.height = ch;
+  canvas.width = sw;
+  canvas.height = sh;
   const ctx = canvas.getContext("2d");
-  const imageData = ctx.createImageData(cw, ch);
+
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = nx;
+  tempCanvas.height = ny;
+  const tempCtx = tempCanvas.getContext("2d");
+  const imageData = tempCtx.createImageData(nx, ny);
   const buf = imageData.data;
 
   if (isCategorical) {
-    const small = document.createElement("canvas");
-    small.width = nx;
-    small.height = ny;
-    const sctx = small.getContext("2d");
+    // Map category strings → numeric indices for Gaussian blur
+    const catKeys = Object.keys(catColors);
+    const catToIndex = {};
+    catKeys.forEach((k, i) => { catToIndex[k] = i; });
 
-    cells.forEach((c) => {
-      if (!c.bbox) return;
-      const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
-      const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
-      const ix = lons.indexOf(cx);
-      const iy = lats.indexOf(cy);
+    const gridValues = Array.from({ length: ny }, () => new Array(nx).fill(null));
+    points.forEach(p => {
+      const ix = lons.indexOf(p.lon);
+      const iy = lats.indexOf(p.lat);
       if (ix !== -1 && iy !== -1) {
-        const cat = getValue(c);
-        const color = catColors[cat];
-        if (color) {
-          sctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-          sctx.fillRect(ix, ny - 1 - iy, 1, 1);
-        }
+        gridValues[iy][ix] = p.value;
       }
     });
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(small, 0, 0, cw, ch);
+    // Nearest-neighbor fill for missing positions
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        if (gridValues[iy][ix] !== null) continue;
+        let best = null, bestDist = Infinity;
+        for (const p of points) {
+          const px = lons.indexOf(p.lon);
+          const py = lats.indexOf(p.lat);
+          if (px === -1 || py === -1) continue;
+          const d = (px - ix) ** 2 + (py - iy) ** 2;
+          if (d < bestDist) { bestDist = d; best = p.value; }
+        }
+        gridValues[iy][ix] = best;
+      }
+    }
+    // Convert to numeric grid for Gaussian blur
+    const numericGrid = Array.from({ length: ny }, () => new Float32Array(nx));
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const idx = catToIndex[gridValues[iy][ix]];
+        numericGrid[iy][ix] = idx !== undefined ? idx : 0;
+      }
+    }
+    // Apply Gaussian blur for smooth boundaries
+    const smoothGrid = gaussianBlurGrid(numericGrid, nx, ny, 1.2);
+    // Render: snap back to nearest category
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const rounded = Math.round(smoothGrid[ny - 1 - iy][ix]);
+        const clamped = Math.max(0, Math.min(catKeys.length - 1, rounded));
+        const color = catColors[catKeys[clamped]] || [80, 80, 90];
+        const idx = (iy * nx + ix) * 4;
+        buf[idx] = color[0]; buf[idx + 1] = color[1]; buf[idx + 2] = color[2]; buf[idx + 3] = 255;
+      }
+    }
   } else {
     const valueGrid = Array.from({ length: ny }, () => new Float32Array(nx).fill(NaN));
-    cells.forEach((c) => {
-      if (!c.bbox) return;
-      const cx = +((c.bbox[0] + c.bbox[2]) / 2).toFixed(6);
-      const cy = +((c.bbox[1] + c.bbox[3]) / 2).toFixed(6);
-      const ix = lons.indexOf(cx);
-      const iy = lats.indexOf(cy);
+    points.forEach(p => {
+      const ix = lons.indexOf(p.lon);
+      const iy = lats.indexOf(p.lat);
       if (ix !== -1 && iy !== -1) {
-        valueGrid[iy][ix] = getValue(c);
+        valueGrid[iy][ix] = p.value;
       }
     });
 
-    // Gaussian pre-filter removes blocky grid artifacts by diffusing each
-    // cell's value into its neighbors with a smooth falloff — creating
-    // organic heat distribution before bilinear rendering.
     const smoothGrid = gaussianBlurGrid(valueGrid, nx, ny, 0.7);
 
     let minVal = Infinity, maxVal = -Infinity;
@@ -251,39 +238,31 @@ export function generateSmoothRaster({ cells, getValue, layerId, width = 3600 })
     }
     if (!isFinite(minVal)) return null;
 
-    const lonStep = nx > 1 ? (lons[nx - 1] - lons[0]) / (nx - 1) : 0.005;
-    const latStep = ny > 1 ? (lats[ny - 1] - lats[0]) / (ny - 1) : 0.005;
-
-    for (let py = 0; py < ch; py++) {
-      for (let px = 0; px < cw; px++) {
-        const lon = eMinLon + (px / (cw - 1)) * (eMaxLon - eMinLon);
-        const lat = eMinLat + (1 - py / (ch - 1)) * (eMaxLat - eMinLat);
-
-        const gx = (lon - lons[0]) / lonStep;
-        const gy = (lat - lats[0]) / latStep;
-
-        const val = sampleGrid(smoothGrid, nx, ny, gx, gy);
-
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const val = smoothGrid[ny - 1 - iy][ix];
         let r, g, b, a;
         if (!isNaN(val)) {
-          [r, g, b, a] = getSmoothColor(val, layerId, minVal, maxVal);
+          [r, g, b, a] = getColor(val, layerId, minVal, maxVal);
         } else {
-          r = WATER_COLOR[0]; g = WATER_COLOR[1]; b = WATER_COLOR[2]; a = WATER_COLOR[3];
+          r = 0; g = 0; b = 0; a = 0;
         }
-
-        const idx = (py * cw + px) * 4;
+        const idx = (iy * nx + ix) * 4;
         buf[idx] = r;
         buf[idx + 1] = g;
         buf[idx + 2] = b;
         buf[idx + 3] = a;
       }
     }
-
-    ctx.putImageData(imageData, 0, 0);
   }
+
+  tempCtx.putImageData(imageData, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(tempCanvas, 0, 0, sw, sh);
 
   return {
     dataUrl: canvas.toDataURL(),
-    bounds: [[eMinLat, eMinLon], [eMaxLat, eMaxLon]],
+    bounds: [[minLat, minLon], [maxLat, maxLon]],
   };
 }

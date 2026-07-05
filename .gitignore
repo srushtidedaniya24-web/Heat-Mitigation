@@ -26,7 +26,8 @@ backend/data/*
 !backend/data/features_raw.csv
 backend/cache/
 
-backend/outputs/
+backend/outputs/*
+!backend/outputs/model_metrics.json
 
 # IDE
 .vscode/

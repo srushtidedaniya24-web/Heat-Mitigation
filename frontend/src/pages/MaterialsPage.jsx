@@ -5,12 +5,14 @@ import usePageInteractions from "../hooks/usePageInteractions";
 import { fetchInterventions, fetchZones } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
+import { useCity } from "../contexts/CityContext";
 import { formatTemp } from "../utils/formatUtils";
 
 export default function MaterialsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "materials");
   const { settings } = useSettings();
+  const { selectedCity } = useCity();
 
   const [materials, setMaterials] = useState([]);
   const [zones, setZones] = useState([]);
@@ -19,8 +21,8 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchZones().then(data => setZones(data.zones || [])).catch(console.error);
-  }, []);
+    fetchZones(selectedCity).then(data => setZones(data.zones || [])).catch(console.error);
+  }, [selectedCity]);
 
   useEffect(() => {
     setLoading(true);
