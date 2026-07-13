@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.VITE_API_URL || "https://heat-mitigation-final.onrender.com").replace(/\/+$/, "");
+const BASE = (import.meta.env.VITE_API_URL || "https://heat-mitigation-coderss.onrender.com").replace(/\/+$/, "");
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`);
