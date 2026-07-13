@@ -70,7 +70,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://heat-mitigation.vercel.app", "https://heat-mitigation-production.up.railway.app", "http://localhost:5173"],
+    allow_origins=["https://heat-mitigation.vercel.app", "https://heat-mitigation-production.up.railway.app", "http://localhost:5173", "https://heat-mitigation-final.onrender.com"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
