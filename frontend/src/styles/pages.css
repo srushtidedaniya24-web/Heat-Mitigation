@@ -123,12 +123,32 @@
   border-top-color: #1e2d45;
 }
 
-@media (max-width: 1100px) {
+/* Responsive: hide right aside panels below xl */
+@media (max-width: 1279px) {
   .overview-page > div > aside:last-child,
   .optimization-page > aside,
   .analysis-page > aside:last-child,
-  .materials-page > aside:last-child,
-  .alerts-page > aside:last-child {
+  .materials-page > aside,
+  .alerts-page > aside,
+  .heatmaps-page > aside:last-child {
     display: none;
+  }
+}
+
+/* Mobile: remove right margin from main content */
+@media (max-width: 1279px) {
+  .overview-page main,
+  .optimization-page main,
+  .analysis-page main,
+  .materials-page main,
+  .alerts-page main {
+    margin-right: 0 !important;
+  }
+}
+
+/* Mobile: reduce padding on glass panels */
+@media (max-width: 640px) {
+  .glass-panel {
+    padding: 12px;
   }
 }

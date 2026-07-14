@@ -6,6 +6,7 @@ import { fetchHeatmap, fetchRecommendations, simulateIntervention } from "../ser
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 
 export default function AnalysisPage() {
@@ -13,6 +14,7 @@ export default function AnalysisPage() {
   usePageInteractions(rootRef, "analysis");
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [zones, setZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -43,9 +45,10 @@ export default function AnalysisPage() {
 
   return (
     <div ref={rootRef} className="analysis-page font-body-md text-body-md overflow-hidden h-screen flex flex-col">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
         <div className={"flex items-center gap-8"}>
-          <span className={"font-display-md text-display-md font-bold text-primary dark:text-primary tracking-tight"}>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary dark:text-primary tracking-tight"}>
             ThermaCity
           </span>
           <nav className={"hidden md:flex items-center gap-6"}>
@@ -58,17 +61,17 @@ export default function AnalysisPage() {
           </nav>
         </div>
         <div className={"flex items-center gap-4"}>
-          <button className={"material-symbols-outlined p-2 text-on-surface-variant cursor-pointer active:opacity-80 transition-opacity hover:bg-surface-variant/50 rounded-full"}>
+          <button className={"material-symbols-outlined p-2 text-on-surface-variant cursor-pointer active:opacity-80 transition-opacity hover:bg-surface-variant/50 rounded-full flex-shrink-0"}>
             notifications
           </button>
-          <button className={"material-symbols-outlined p-2 text-on-surface-variant cursor-pointer active:opacity-80 transition-opacity hover:bg-surface-variant/50 rounded-full"}>
+          <button className={"material-symbols-outlined p-2 text-on-surface-variant cursor-pointer active:opacity-80 transition-opacity hover:bg-surface-variant/50 rounded-full flex-shrink-0"}>
             account_circle
           </button>
         </div>
       </header>
       <div className={"flex flex-1 pt-16"}>
         <Sidebar />
-        <main className={"ml-64 mr-80 flex-1 overflow-y-auto bg-surface p-6"}>
+        <main className={"lg:ml-64 xl:mr-80 flex-1 overflow-y-auto bg-surface p-3 sm:p-6"}>
           <div className={"grid grid-cols-1 lg:grid-cols-2 gap-6 h-full"}>
             <section className={"glass-panel rounded-xl flex flex-col p-5 overflow-hidden"}>
               <div className={"flex justify-between items-center mb-6"}>
@@ -83,6 +86,7 @@ export default function AnalysisPage() {
                 </span>
               </div>
               <div className={"flex-1 overflow-y-auto pr-2"}>
+                <div className="overflow-x-auto">
                 <table className={"w-full text-left border-separate border-spacing-y-3"}>
                   <thead className={"sticky top-0 bg-[#111827] z-10"}>
                     <tr className={"text-on-surface-variant font-data-sm text-data-sm border-b border-outline-variant"}>
@@ -140,6 +144,7 @@ export default function AnalysisPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </section>
             <section className={"glass-panel rounded-xl flex flex-col p-5"}>
@@ -295,7 +300,7 @@ export default function AnalysisPage() {
             </div>
           </section>
         </main>
-        <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 flex flex-col bg-surface-container-lowest dark:bg-surface-container-lowest border-l border-outline-variant dark:border-outline-variant"}>
+        <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 hidden xl:flex flex-col bg-surface-container-lowest dark:bg-surface-container-lowest border-l border-outline-variant dark:border-outline-variant"}>
           <div className={"p-6 border-b border-outline-variant"}>
             <h2 className={"font-display-md text-display-md text-primary mb-1"}>
               Intelligence Panel

@@ -6,6 +6,7 @@ import { fetchInterventions, fetchZones } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 
 export default function MaterialsPage() {
@@ -13,6 +14,7 @@ export default function MaterialsPage() {
   usePageInteractions(rootRef, "materials");
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [materials, setMaterials] = useState([]);
   const [zones, setZones] = useState([]);
@@ -39,9 +41,10 @@ export default function MaterialsPage() {
 
   return (
     <div ref={rootRef} className="materials-page bg-background text-on-surface font-body-md selection:bg-primary selection:text-on-primary overflow-hidden">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
         <div className={"flex items-center gap-4"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>
             ThermaCity
           </span>
           <nav className={"hidden md:flex ml-8 gap-6"}>
@@ -66,7 +69,7 @@ export default function MaterialsPage() {
         </div>
       </header>
       <Sidebar />
-      <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 flex flex-col bg-surface-container-lowest border-l border-outline-variant"}>
+      <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 hidden xl:flex flex-col bg-surface-container-lowest border-l border-outline-variant"}>
         <div className={"p-6 border-b border-outline-variant"}>
           <h3 className={"font-display-md text-headline-sm text-primary"}>
             Intelligence Panel
@@ -135,14 +138,14 @@ export default function MaterialsPage() {
           </section>
         </div>
       </aside>
-      <main className={"ml-64 mr-80 mt-16 p-container-padding overflow-y-auto h-[calc(100vh-64px)] scroll-smooth"}>
+      <main className={"lg:ml-64 xl:mr-80 mt-16 p-3 sm:p-container-padding overflow-y-auto h-[calc(100vh-64px)] scroll-smooth"}>
         {loading ? (
           <div className={"flex items-center justify-center h-64"}>
             <span className={"text-on-surface-variant"}>Loading intervention data...</span>
           </div>
         ) : (
           <>
-            <div className={"grid grid-cols-5 gap-panel-gap mb-8"}>
+            <div className={"grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-panel-gap mb-8"}>
               {materials.slice(0, 5).map(m => (
                 <div key={m.id} className={"glass-panel p-4 rounded-xl flex flex-col items-center text-center"}>
                   <span className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-wider mb-2"}>

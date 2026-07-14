@@ -25,6 +25,7 @@ body {
   background: #001330;
   color: #d7e2ff;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button,
@@ -32,4 +33,38 @@ a,
 input,
 select {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile header hamburger button */
+.mobile-menu-btn {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+}
+
+/* Mobile-responsive table wrapper */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile bottom bar for maps pages */
+@media (max-width: 640px) {
+  .mobile-bottom-bar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 16px 16px 0 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    transform: none !important;
+  }
+  .mobile-bottom-bar > div {
+    gap: 12px !important;
+  }
 }

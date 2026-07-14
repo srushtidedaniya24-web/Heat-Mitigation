@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 import { fetchHeatmap, fetchGridHeatmap, fetchRecommendations } from "../services/api";
 import { generateSmoothRaster } from "../utils/smoothRaster";
@@ -155,6 +156,7 @@ export default function HeatMapsPage() {
   usePageInteractions(rootRef, "heatmaps");
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [zones, setZones] = useState([]);
   const [gridCells, setGridCells] = useState([]);
@@ -251,9 +253,10 @@ export default function HeatMapsPage() {
 
   return (
     <div ref={rootRef} className="heatmaps-page bg-background text-on-surface font-body-md selection:bg-primary/30 overflow-hidden">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
         <div className={"flex items-center gap-4"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>
             ThermaCity
           </span>
           <nav className={"hidden md:flex ml-8 gap-6"}>
@@ -272,7 +275,7 @@ export default function HeatMapsPage() {
         </div>
       </header>
       <Sidebar />
-      <main className={"ml-64 pt-16 h-screen relative flex overflow-hidden"}>
+      <main className={"lg:ml-64 pt-16 h-screen relative flex overflow-hidden"}>
         <div className={"absolute inset-0 z-0"}>
           <MapContainer
             center={mapCenter}
@@ -319,7 +322,7 @@ export default function HeatMapsPage() {
             )}
           </MapContainer>
         </div>
-        <aside className={"w-80 h-full p-4 z-10 pointer-events-none"}>
+        <aside className={"w-80 h-full p-4 z-10 pointer-events-none hidden md:flex"}>
           <div className={"bg-surface-container-lowest/90 backdrop-blur-2xl border border-outline-variant rounded-xl h-full flex flex-col pointer-events-auto overflow-hidden"}>
             <div className={"p-5 border-b border-outline-variant"}>
               <h3 className={"font-headline-sm text-on-surface flex items-center gap-2"}>
@@ -404,7 +407,7 @@ export default function HeatMapsPage() {
             </div>
           </div>
         </aside>
-        <aside className={"absolute right-0 top-0 bottom-0 w-80 z-40 flex flex-col bg-surface-container-lowest/40 backdrop-blur-sm border-l border-outline-variant translate-x-[75%] hover:translate-x-0 transition-transform duration-500 ease-in-out"}>
+        <aside className={"absolute right-0 top-0 bottom-0 w-80 z-40 flex flex-col bg-surface-container-lowest/40 backdrop-blur-sm border-l border-outline-variant translate-x-[75%] hover:translate-x-0 transition-transform duration-500 ease-in-out hidden lg:flex"}>
           <div className={"p-4 border-b border-outline-variant bg-surface-container-lowest"}>
             <h3 className={"font-headline-sm text-secondary"}>Intelligence Panel</h3>
             <p className={"text-on-surface-variant text-[10px] uppercase"}>Data Density: High</p>
@@ -502,8 +505,8 @@ export default function HeatMapsPage() {
 
           </div>
         </aside>
-        <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-gutter"}>
-          <div className={"bg-surface-container-highest/90 backdrop-blur-3xl border border-outline-variant rounded-full py-4 px-8 flex items-center justify-between shadow-2xl"}>
+        <div className={"absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-4xl px-gutter mobile-bottom-bar"}>
+          <div className={"bg-surface-container-highest/90 backdrop-blur-3xl border border-outline-variant rounded-full py-4 px-8 flex items-center justify-between flex-wrap shadow-2xl"}>
             <div className={"flex items-center gap-6"}>
               <div className={"flex flex-col"}>
                 <span className={"font-data-sm text-[10px] text-on-surface-variant uppercase tracking-widest"}>City Average</span>

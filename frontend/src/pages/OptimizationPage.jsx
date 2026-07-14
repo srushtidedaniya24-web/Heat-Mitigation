@@ -6,6 +6,7 @@ import { fetchZones, fetchInterventions, simulateIntervention, fetchRecommendati
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 
 const INTERVENTION_LABELS = {
@@ -21,6 +22,7 @@ export default function OptimizationPage() {
   usePageInteractions(rootRef, "optimization");
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [zones, setZones] = useState([]);
   const [intvByZone, setIntvByZone] = useState({});
@@ -87,9 +89,10 @@ export default function OptimizationPage() {
 
   return (
     <div ref={rootRef} className="optimization-page bg-background text-on-surface font-body-md overflow-hidden">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
         <div className={"flex items-center gap-4"}>
-          <span className={"font-display-md text-display-md font-bold text-primary dark:text-primary tracking-tight"}>ThermaCity</span>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary dark:text-primary tracking-tight"}>ThermaCity</span>
           <div className={"hidden md:flex gap-6 ml-8"}>
             <Link to={"/"} className={"text-on-surface-variant font-medium hover:bg-surface-variant/50 transition-colors px-2 py-1"}>Live Status</Link>
           </div>
@@ -100,9 +103,9 @@ export default function OptimizationPage() {
         </div>
       </header>
       <Sidebar />
-      <main className={"ml-64 mr-80 mt-16 p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
+      <main className={"lg:ml-64 xl:mr-80 mt-16 p-3 sm:p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
         <div className={"max-w-layout-max-width mx-auto flex flex-col gap-6"}>
-          <div className={"flex justify-between items-end"}>
+          <div className={"flex flex-col sm:flex-row sm:items-end justify-between gap-3"}>
             <div>
               <h1 className={"font-display-md text-display-md text-primary mb-2"}>City-Wide Intervention Planner</h1>
               <p className={"text-on-surface-variant max-w-2xl"}>Simulate thermal mitigation strategies across urban zones. Adjust parameters to optimize temperature reduction vs. economic investment.</p>
@@ -118,6 +121,7 @@ export default function OptimizationPage() {
           </div>
 
           <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden"}>
+            <div className="overflow-x-auto">
             <table className={"w-full border-collapse"}>
               <thead className={"bg-surface-container text-on-surface-variant"}>
                 <tr>
@@ -187,9 +191,10 @@ export default function OptimizationPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
 
-          <div className={"bg-surface-container-highest border border-primary/20 rounded-xl p-6 flex flex-wrap items-center justify-between gap-8"}>
+          <div className={"bg-surface-container-highest border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 sm:gap-8"}>
             <div className={"flex items-center gap-10"}>
               <div>
                 <p className={"font-data-sm text-data-sm text-on-surface-variant uppercase tracking-widest mb-1"}>Total Investment</p>
@@ -354,7 +359,7 @@ export default function OptimizationPage() {
         </div>
       </main>
 
-      <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 flex flex-col bg-surface-container-lowest dark:bg-surface-container-lowest border-l border-outline-variant dark:border-outline-variant"}>
+      <aside className={"fixed right-0 top-16 bottom-0 w-80 z-40 hidden xl:flex flex-col bg-surface-container-lowest dark:bg-surface-container-lowest border-l border-outline-variant dark:border-outline-variant"}>
         <div className={"p-6 border-b border-outline-variant"}>
           <h2 className={"font-display-md text-display-md text-primary text-[24px]"}>Intelligence Panel</h2>
           <p className={"font-body-sm text-body-sm text-on-surface-variant"}>{selectedZone?.name || "Select a zone"}</p>

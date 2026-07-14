@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 import { fetchAlerts, resolveAlert } from "../services/api";
 import "../styles/pages.css";
@@ -34,6 +35,7 @@ export default function AlertsPage() {
   usePageInteractions(rootRef, "alerts");
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [alerts, setAlerts] = useState([]);
   const [meta, setMeta] = useState({ total: 0, critical: 0, high: 0, medium: 0 });
@@ -84,9 +86,10 @@ export default function AlertsPage() {
 
   return (
     <div ref={rootRef} className="alerts-page bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
-      <nav className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+      <nav className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
         <div className={"flex items-center gap-4"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
           <div className={"hidden md:flex gap-6 ml-8"}>
             <Link to={"/"} className={"text-on-surface-variant font-medium hover:bg-surface-variant/50 px-3 py-1 rounded transition-colors"}>Overview</Link>
             <Link to={"/alerts"} className={"text-primary font-bold border-b-2 border-primary px-3 py-1"}>Alerts</Link>
@@ -150,7 +153,7 @@ export default function AlertsPage() {
           </div>
         </div>
       </aside>
-      <main className={"ml-64 mr-0 xl:mr-80 mt-16 px-gutter pb-12 overflow-y-auto h-full"}>
+      <main className={"lg:ml-64 mr-0 xl:mr-80 mt-16 px-3 sm:px-gutter pb-12 overflow-y-auto h-full"}>
         <div className={"max-w-layout-max-width mx-auto"}>
           <div className={"flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6 pt-6"}>
             <div>

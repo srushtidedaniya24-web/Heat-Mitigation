@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import usePageInteractions from "../hooks/usePageInteractions";
+import { useSidebar } from "../contexts/SidebarContext";
 import { fetchReports, generateReport } from "../services/api";
 import "../styles/pages.css";
 
@@ -15,6 +16,7 @@ const REPORT_TYPES = [
 export default function ReportsPage() {
   const rootRef = useRef(null);
   usePageInteractions(rootRef, "reports");
+  const { toggle } = useSidebar();
 
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ total: 0, scheduled: 0, this_month: 0, pending: 0 });
@@ -81,9 +83,10 @@ export default function ReportsPage() {
 
   return (
     <div ref={rootRef} className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
         <div className={"flex items-center gap-8"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
           <nav className={"hidden md:flex items-center gap-6"}>
             <Link to={"/"} className={"text-on-surface-variant font-medium hover:bg-surface-variant/50 transition-colors px-3 py-1 rounded"}>Live Status</Link>
             <Link to={"/reports"} className={"text-primary font-bold border-b-2 border-primary px-3 py-1"}>Reports</Link>
@@ -95,9 +98,9 @@ export default function ReportsPage() {
         </div>
       </header>
       <Sidebar />
-      <main className={"ml-64 mt-16 p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
+      <main className={"lg:ml-64 mt-16 p-3 sm:p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
         <div className={"max-w-layout-max-width mx-auto flex flex-col gap-6"}>
-          <div className={"flex justify-between items-end"}>
+          <div className={"flex flex-col sm:flex-row sm:items-end justify-between gap-3"}>
             <div>
               <h1 className={"font-display-md text-display-md text-primary mb-2"}>Reports & Analytics</h1>
               <p className={"text-on-surface-variant max-w-2xl"}>Generate, schedule, and download comprehensive heat mitigation reports across all zones.</p>
@@ -180,43 +183,45 @@ export default function ReportsPage() {
               <span className={"text-on-surface-variant animate-pulse"}>Loading reports...</span>
             </div>
           ) : (
-            <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden"}>
-              <table className={"w-full text-left border-collapse"}>
-                <thead className={"bg-surface-container text-on-surface-variant"}>
-                  <tr>
-                    <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Report Name</th>
-                    <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Type</th>
-                    <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Date</th>
-                    <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Status</th>
-                    <th className={"text-right py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody className={"divide-y divide-outline-variant"}>
-                  {reports.length === 0 ? (
-                    <tr><td colSpan={5} className={"py-12 text-center text-on-surface-variant"}>No reports yet. Click "New Report" to generate one.</td></tr>
-                  ) : reports.map((row, i) => (
-                    <tr key={row.id || i} className={"hover:bg-surface-container-low/50 transition-colors"}>
-                      <td className={"py-4 px-6 font-body-sm text-body-sm text-on-surface font-medium"}>{row.name}</td>
-                      <td className={"py-4 px-6"}><span className={typeBadge(row.type)}>{row.type}</span></td>
-                      <td className={"py-4 px-6 font-body-sm text-body-sm text-on-surface-variant"}>{row.date}</td>
-                      <td className={"py-4 px-6"}><span className={statusBadge(row.status)}>{row.status}</span></td>
-                      <td className={"py-4 px-6 text-right"}>
-                        <div className={"flex items-center justify-end gap-2"}>
-                          <button onClick={() => handleDownload(row)} className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
-                            <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>download</span>
-                          </button>
-                          <button className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
-                            <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>visibility</span>
-                          </button>
-                          <button className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
-                            <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>more_vert</span>
-                          </button>
-                        </div>
-                      </td>
+            <div className="overflow-x-auto">
+              <div className={"bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden"}>
+                <table className={"w-full text-left border-collapse"}>
+                  <thead className={"bg-surface-container text-on-surface-variant"}>
+                    <tr>
+                      <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Report Name</th>
+                      <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Type</th>
+                      <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Date</th>
+                      <th className={"text-left py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Status</th>
+                      <th className={"text-right py-4 px-6 font-data-sm text-data-sm uppercase tracking-wider"}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className={"divide-y divide-outline-variant"}>
+                    {reports.length === 0 ? (
+                      <tr><td colSpan={5} className={"py-12 text-center text-on-surface-variant"}>No reports yet. Click "New Report" to generate one.</td></tr>
+                    ) : reports.map((row, i) => (
+                      <tr key={row.id || i} className={"hover:bg-surface-container-low/50 transition-colors"}>
+                        <td className={"py-4 px-6 font-body-sm text-body-sm text-on-surface font-medium"}>{row.name}</td>
+                        <td className={"py-4 px-6"}><span className={typeBadge(row.type)}>{row.type}</span></td>
+                        <td className={"py-4 px-6 font-body-sm text-body-sm text-on-surface-variant"}>{row.date}</td>
+                        <td className={"py-4 px-6"}><span className={statusBadge(row.status)}>{row.status}</span></td>
+                        <td className={"py-4 px-6 text-right"}>
+                          <div className={"flex items-center justify-end gap-2"}>
+                            <button onClick={() => handleDownload(row)} className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
+                              <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>download</span>
+                            </button>
+                            <button className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
+                              <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>visibility</span>
+                            </button>
+                            <button className={"p-2 hover:bg-surface-variant/50 rounded transition-colors"}>
+                              <span className={"material-symbols-outlined text-sm text-on-surface-variant"}>more_vert</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

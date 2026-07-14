@@ -6,6 +6,7 @@ import { fetchHeatmap, fetchMetrics, classifyZone } from "../services/api";
 import "../styles/pages.css";
 import { useSettings } from "../contexts/SettingsContext";
 import { useCity } from "../contexts/CityContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { formatTemp } from "../utils/formatUtils";
 
 const CLASS_COLORS = { COOL: "#1A4FA0", MODERATE: "#0EA882", HOT: "#FF6B35", CRITICAL: "#FF4E1A" };
@@ -148,6 +149,7 @@ export default function PredictionsPage() {
 
   const { settings } = useSettings();
   const { selectedCity } = useCity();
+  const { toggle } = useSidebar();
 
   const [zones, setZones] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -197,9 +199,10 @@ export default function PredictionsPage() {
 
   return (
     <div ref={rootRef} className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low dark:bg-surface-container-low border-b border-outline-variant dark:border-outline-variant"}>
         <div className={"flex items-center gap-8"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>
+          <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+          <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>
             ThermaCity
           </span>
           <nav className={"hidden md:flex items-center gap-6"}>
@@ -221,9 +224,9 @@ export default function PredictionsPage() {
         </div>
       </header>
       <Sidebar />
-      <main className={"ml-64 mt-16 p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
+      <main className={"lg:ml-64 mt-16 p-3 sm:p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
         <div className={"max-w-layout-max-width mx-auto flex flex-col gap-6"}>
-          <div className={"flex justify-between items-end"}>
+          <div className={"flex flex-col sm:flex-row sm:items-end justify-between gap-3"}>
             <div>
               <h1 className={"font-display-md text-display-md text-primary mb-2"}>
                 Thermal Predictions

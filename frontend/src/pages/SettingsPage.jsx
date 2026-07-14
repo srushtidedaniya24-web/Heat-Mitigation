@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import usePageInteractions from "../hooks/usePageInteractions";
 import Sidebar from "../components/Sidebar";
 import { useSettings } from "../contexts/SettingsContext";
+import { useSidebar } from "../contexts/SidebarContext";
 import { saveSettings } from "../services/api";
 import "../styles/pages.css";
 
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   usePageInteractions(rootRef, "settings");
 
   const { settings: ctxSettings, loading: ctxLoading, updateSettings } = useSettings();
+  const { toggle } = useSidebar();
   const [form, setForm] = useState(DEFAULT_SETTINGS);
   const [activeTab, setActiveTab] = useState("General");
   const [saving, setSaving] = useState(false);
@@ -84,11 +86,14 @@ export default function SettingsPage() {
   if (ctxLoading) {
     return (
       <div className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
-        <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight px-gutter"}>ThermaCity</span>
+        <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+          <div className={"flex items-center"}>
+            <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+            <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight px-gutter"}>ThermaCity</span>
+          </div>
         </header>
         <Sidebar />
-        <main className={"ml-64 mt-16 p-gutter h-[calc(100vh-64px)] flex items-center justify-center"}>
+        <main className={"lg:ml-64 mt-16 p-3 sm:p-gutter h-[calc(100vh-64px)] flex items-center justify-center"}>
           <span className={"text-on-surface-variant animate-pulse"}>Loading form...</span>
         </main>
       </div>
@@ -97,9 +102,12 @@ export default function SettingsPage() {
 
   return (
     <div ref={rootRef} className="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
-      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
+      <header className={"fixed top-0 left-0 w-full z-[60] flex items-center justify-between px-3 sm:px-gutter h-16 bg-surface-container-low border-b border-outline-variant"}>
         <div className={"flex items-center gap-8"}>
-          <span className={"font-display-md text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
+          <div className={"flex items-center"}>
+            <button onClick={toggle} className="lg:hidden p-2 -ml-2 hover:bg-surface-variant/50 rounded-full transition-colors"><span className="material-symbols-outlined text-on-surface">menu</span></button>
+            <span className={"font-display-md text-xl sm:text-display-md font-bold text-primary tracking-tight"}>ThermaCity</span>
+          </div>
           <nav className={"hidden md:flex items-center gap-6"}>
             <Link to={"/"} className={"text-on-surface-variant font-medium hover:bg-surface-variant/50 transition-colors px-3 py-1 rounded"}>Live Status</Link>
             <Link to={"/settings"} className={"text-primary font-bold border-b-2 border-primary px-3 py-1"}>Settings</Link>
@@ -111,9 +119,9 @@ export default function SettingsPage() {
         </div>
       </header>
       <Sidebar />
-      <main className={"ml-64 mt-16 p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
+      <main className={"lg:ml-64 mt-16 p-3 sm:p-gutter h-[calc(100vh-64px)] overflow-y-auto"}>
         <div className={"max-w-layout-max-width mx-auto flex flex-col gap-6"}>
-          <div className={"flex justify-between items-end"}>
+          <div className={"flex flex-col sm:flex-row sm:items-end justify-between gap-3"}>
             <div>
               <h1 className={"font-display-md text-display-md text-primary mb-2"}>Settings</h1>
               <p className={"text-on-surface-variant max-w-2xl"}>Configure system preferences, alert thresholds, data sources, and account form.</p>
